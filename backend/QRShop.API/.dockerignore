@@ -1,0 +1,7 @@
+bin/
+obj/
+wwwroot/uploads/
+Dockerfile
+.dockerignore
+*.user
+appsettings.Development.json
