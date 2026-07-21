@@ -1,0 +1,25 @@
+# HTTPS overlay. Use once a domain points at the server:
+#   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d --build
+# Set WEB_PORT=8080 in .env first so Caddy can own 80/443.
+# Caddy obtains and renews Let's Encrypt certificates automatically.
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: qrshop-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:
