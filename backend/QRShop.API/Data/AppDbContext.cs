@@ -55,7 +55,7 @@ public class AppDbContext : DbContext
             .HasForeignKey<Inventory>(i => i.VariantId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Avoid multiple cascade paths on SQL Server.
+        // Avoid multiple cascade delete paths to the same table.
         b.Entity<Product>()
             .HasOne(p => p.ProductCategory)
             .WithMany(pc => pc.Products)

@@ -9,9 +9,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-// EF Core + SQL Server
+// EF Core + MySQL
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    // An explicit server version avoids EF opening a connection at startup,
+    // which would fail while the database container is still booting.
+    options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 36)),
+        mysql => mysql.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(10),
+            errorNumbersToAdd: null)));
 
 // Local file storage for images / certificates / QR codes.
 builder.Services.AddHttpContextAccessor();
@@ -46,11 +53,30 @@ var app = builder.Build();
 
 // Apply pending EF migrations on startup so a fresh container self-provisions
 // its schema. Opt out with RUN_MIGRATIONS=false.
+//
+// On a host reboot the database container may not accept connections yet, so
+// retry rather than crash — otherwise the API enters a restart loop.
 if (app.Configuration.GetValue("RUN_MIGRATIONS", true))
 {
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+    const int maxAttempts = 20;
+
+    for (var attempt = 1; ; attempt++)
+    {
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
+            logger.LogInformation("Database migrations applied.");
+            break;
+        }
+        catch (Exception ex) when (attempt < maxAttempts)
+        {
+            logger.LogWarning("Database not ready (attempt {Attempt}/{Max}): {Message}. Retrying in 5s…",
+                attempt, maxAttempts, ex.Message);
+            Thread.Sleep(TimeSpan.FromSeconds(5));
+        }
+    }
 }
 
 // --- Pipeline ---
