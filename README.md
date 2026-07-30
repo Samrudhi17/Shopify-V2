@@ -10,7 +10,7 @@ products/inventory, and get a unique **catalog URL** (`domain/shopname`) plus a
 | ---------- | --------------------------------------------- |
 | Frontend   | React (Vite), React Router, Axios             |
 | Backend    | .NET 10 Web API, EF Core                       |
-| Database   | SQL Server                                     |
+| Database   | MySQL 8                                        |
 | Auth       | Firebase Authentication                        |
 | Storage    | Backend local storage (wwwroot/uploads, served as static URLs) |
 | QR codes   | QRCoder (.NET)                                  |
@@ -39,7 +39,7 @@ QRBasedDigitalShop/
 │           ├── vendor/      # Sidebar layout + Dashboard/Profile/Products/...
 │           └── shop/        # ShopCatalog (public customer page)
 ├── database/
-│   └── schema.sql           # Generated SQL Server schema
+│   └── schema.sql           # Generated MySQL schema
 └── docs/
 ```
 
@@ -47,7 +47,7 @@ QRBasedDigitalShop/
 
 - The **first** registered user becomes the **Admin** (stored in `Admins`).
 - Every subsequent registration is a **Vendor** (stored in `Vendors`).
-- Name/email/password live in **Firebase**; full profiles live in **SQL Server**.
+- Name/email/password live in **Firebase**; full profiles live in **MySQL**.
 
 ## Deployment
 
@@ -59,26 +59,26 @@ docker compose up -d --build
 ```
 
 nginx serves the React build and proxies `/api` and `/uploads` to the .NET
-container, so everything runs on one origin (no CORS). SQL Server data and
+container, so everything runs on one origin (no CORS). Database data and
 uploaded files live in named volumes.
+
+Every image used publishes native **arm64** builds, so the stack runs on
+Ampere/Graviton servers as well as x86.
 
 ## Local development
 
-### 1. Database (SQL Server)
+### 1. Database (MySQL)
 
-SQL Server isn't installed locally yet. Options on macOS:
+```bash
+docker run -d --name qrshop-mysql \
+  -e MYSQL_ROOT_PASSWORD=Your_password123 \
+  -e MYSQL_DATABASE=QRShopDb \
+  -p 3306:3306 mysql:8
+```
 
-- Run SQL Server in Docker:
-  ```bash
-  docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Your_password123" \
-    -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest
-  ```
-  Then set the connection string in `backend/QRShop.API/appsettings.json`:
-  ```
-  Server=localhost,1433;Database=QRShopDb;User Id=sa;Password=Your_password123;TrustServerCertificate=True;
-  ```
+The default connection string in `backend/QRShop.API/appsettings.json`
+already matches. Apply the schema:
 
-Apply the schema:
 ```bash
 cd backend/QRShop.API
 dotnet ef database update

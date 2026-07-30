@@ -1,21 +1,21 @@
 services:
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    # MySQL publishes native linux/arm64 images, so this runs on Hetzner's
+    # Ampere (CAX) servers as well as x86.
+    image: mysql:8
     container_name: qrshop-db
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${SA_PASSWORD:?set SA_PASSWORD in .env}
-      # Express is the free-for-production edition (10 GB / database).
-      # Do NOT use "Developer" on a live server — it is licensed for dev/test only.
-      MSSQL_PID: Express
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      MYSQL_DATABASE: QRShopDb
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - mssql-data:/var/opt/mssql
+      - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 60s
+      start_period: 40s
     restart: unless-stopped
 
   api:
@@ -26,7 +26,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: >-
-        Server=db,1433;Database=QRShopDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
+        Server=db;Port=3306;Database=QRShopDb;User=root;Password=${DB_PASSWORD};
       # Used to build each shop's public catalog URL (domain/shopname).
       AppSettings__PublicBaseUrl: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL in .env}
       Jwt__Key: ${JWT_KEY:?set JWT_KEY in .env}
@@ -39,7 +39,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -64,5 +64,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  mssql-data:
+  mysql-data:
   uploads:

@@ -1,11 +1,14 @@
 # Deploying to Hetzner
 
-## 1. Pick the right server
+## 1. Server
 
-| Requirement | Why |
+Every image in this stack (MySQL, .NET, nginx, Caddy) publishes native
+**linux/arm64** builds, so Hetzner's Ampere **CAX** servers work — as do the
+x86 **CX/CPX** lines.
+
+| Requirement | Note |
 | --- | --- |
-| **x86 server (CX / CPX line)** | **Microsoft does not publish an ARM64 SQL Server image.** A Hetzner **CAX** (ARM) server cannot run this stack. |
-| **≥ 4 GB RAM** | SQL Server alone wants ~2 GB. `CX22` (2 vCPU / 4 GB / 40 GB) is the practical minimum. |
+| **CAX11** (2 vCPU / 4 GB) or better | Comfortable for this stack. 2 GB would be tight. |
 | Ubuntu 24.04 | Anything with Docker works; this guide assumes Ubuntu. |
 
 ## 2. Prepare the server
@@ -28,7 +31,7 @@ cp .env.example .env
 nano .env          # fill in every value
 ```
 
-`.env` must contain a strong `SA_PASSWORD`, a random `JWT_KEY`
+`.env` must contain a strong `DB_PASSWORD`, a random `JWT_KEY`
 (`openssl rand -base64 48`), your `PUBLIC_BASE_URL`, and the six
 `VITE_FIREBASE_*` values from the Firebase console.
 
@@ -67,7 +70,7 @@ Internet → Caddy :443 (TLS)
              └→ web  :80   nginx: serves React, SPA fallback
                     ├ /api/     → api:8080
                     └ /uploads/ → api:8080  (product images, QR codes)
-                                     └→ db:1433  SQL Server
+                                     └→ db:3306  MySQL
 ```
 
 The frontend calls `/api` on its **own origin**, so there is no CORS
@@ -77,7 +80,7 @@ configuration and no hostname baked into the JavaScript bundle.
 
 Two named volumes hold all persistent state:
 
-- `mssql-data` — the database
+- `mysql-data` — the database
 - `uploads` — product images, logos, shop-act certificates, QR codes
 
 Never `docker compose down -v` on the server; `-v` deletes both.
@@ -86,13 +89,19 @@ Never `docker compose down -v` on the server; `-v` deletes both.
 
 ```bash
 # Database
-docker compose exec db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa \
-  -P "$SA_PASSWORD" -C -Q "BACKUP DATABASE QRShopDb TO DISK='/var/opt/mssql/backup.bak' WITH INIT"
-docker compose cp db:/var/opt/mssql/backup.bak ./backup-$(date +%F).bak
+docker compose exec db sh -c \
+  'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" QRShopDb' > backup-$(date +%F).sql
 
 # Uploaded files
 docker run --rm -v qrbaseddigitalshop_uploads:/u -v $(pwd):/out alpine \
   tar czf /out/uploads-$(date +%F).tar.gz -C /u .
+```
+
+Restore the database with:
+
+```bash
+docker compose exec -T db sh -c \
+  'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" QRShopDb' < backup-YYYY-MM-DD.sql
 ```
 
 ## Updating
@@ -105,9 +114,6 @@ EF Core migrations run automatically at API startup.
 
 ## Notes
 
-- **SQL Server edition** — compose sets `MSSQL_PID=Express` (free for
-  production, 10 GB per database). `Developer` is free but **licensed for
-  dev/test only**, so it must not be used on a live server.
 - **Uploads are stored on the server's disk**, which is correct here because
   a Hetzner VM has a persistent disk. This would break on ephemeral hosts
   (Heroku/Render/App Service) or if the API is ever scaled past one replica.
