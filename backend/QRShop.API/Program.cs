@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRShop.API.Data;
 using QRShop.API.Services;
@@ -8,6 +9,26 @@ var builder = WebApplication.CreateBuilder(args);
 // --- Services ---
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// [ApiController] returns a ValidationProblemDetails on a model-validation
+// failure, but every hand-written error in this API is shaped { message },
+// and that is what the React client reads. Reshape the automatic 400 to match
+// while still exposing the per-field errors for inline display.
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(kv => kv.Value?.Errors.Count > 0)
+            .ToDictionary(
+                kv => System.Text.Json.JsonNamingPolicy.CamelCase.ConvertName(kv.Key),
+                kv => kv.Value!.Errors.Select(e => e.ErrorMessage).ToArray());
+
+        var message = errors.Values.SelectMany(m => m).FirstOrDefault() ?? "Invalid request.";
+
+        return new BadRequestObjectResult(new { message, errors });
+    };
+});
 
 // EF Core + MySQL
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
