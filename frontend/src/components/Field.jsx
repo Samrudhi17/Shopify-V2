@@ -2,6 +2,9 @@
 // form. Passing `onToggleReveal` turns it into a password field with a
 // show/hide button; `hint` shows a neutral note (e.g. "Checking availability…")
 // when the field has no error.
+
+import { trimOnBlur } from "../constants/validation";
+
 export default function Field({
   label, type = "text", error, hint, reveal, onToggleReveal, prefix, ...props
 }) {
@@ -11,6 +14,7 @@ export default function Field({
       type={type}
       aria-invalid={Boolean(error)}
       {...props}
+      onBlur={trimOnBlur(props, type)}
     />
   );
 

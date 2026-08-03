@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using QRShop.API.Data;
+using QRShop.API.Json;
 using QRShop.API.Services;
 
 // Load the repo-root .env before configuration is built, so `dotnet run` picks
@@ -14,7 +15,11 @@ LoadDotEnv(Directory.GetCurrentDirectory());
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Services ---
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    // Whitespace is stripped off every incoming string before model validation
+    // runs, so " " fails a [Required] instead of passing it.
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions.Converters.Add(new TrimmingStringConverter()));
 builder.Services.AddOpenApi();
 
 // [ApiController] returns a ValidationProblemDetails on a model-validation

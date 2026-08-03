@@ -66,8 +66,10 @@ export default function Settings() {
               label="Alternate Number" value={form.alternateNumber}
               onChange={set("alternateNumber", onlyDigits)} {...PHONE_FIELD}
             />
-            <label className="field"><span>Address *</span>
-              <input className="input" value={form.address} onChange={set("address")} required minLength={5} maxLength={255} /></label>
+            <Field
+              label="Address *" value={form.address} onChange={set("address")}
+              required minLength={5} maxLength={255}
+            />
             {saved && <div className="alert alert-success">Saved.</div>}
             <button className="btn btn-primary" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button>
           </form>

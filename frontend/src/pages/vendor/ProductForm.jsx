@@ -9,6 +9,7 @@ import { useAuth } from "../../context/AuthContext";
 import { COLORS } from "../../constants/colors";
 import { FILE_RULES, formatBytes, validateFile } from "../../constants/validation";
 import usePageTitle from "../../hooks/usePageTitle";
+import { trimOnBlur } from "../../constants/validation";
 
 const initial = {
   productName: "", productType: "", description: "", brand: "",
@@ -214,7 +215,12 @@ export default function ProductForm() {
                 {generating ? "Generating…" : "✨ Generate"}
               </button>
             </span>
-            <textarea className="input" rows={3} value={form.description} onChange={set("description")} />
+            <textarea
+              className="input" rows={3}
+              value={form.description}
+              onChange={set("description")}
+              onBlur={trimOnBlur({ onChange: set("description"), value: form.description })}
+            />
             {aiError && <span className="field-error">{aiError}</span>}
           </label>
 
@@ -303,7 +309,7 @@ function F({ label, type = "text", ...props }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <input className="input" type={type} {...props} />
+      <input className="input" type={type} {...props} onBlur={trimOnBlur(props, type)} />
     </label>
   );
 }

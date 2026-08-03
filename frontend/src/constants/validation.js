@@ -64,6 +64,28 @@ export const MESSAGES = {
 // Input transforms, applied as the user types so the value can only ever be in
 // a shape the pattern accepts.
 export const onlyDigits = (v) => v.replace(/\D/g, "");
+
+// Strips leading and trailing whitespace when the field loses focus, by
+// re-firing the caller's own onChange with the trimmed value — so validation,
+// transforms and state all run exactly as they do for a normal keystroke.
+//
+// On blur rather than on change: trimming every keystroke would swallow the
+// space in "John Doe" the moment it was typed, making the field impossible to
+// use. Passwords are left alone — a trailing space can be deliberate there, and
+// silently removing it would lock someone out of an account they set up.
+export function trimOnBlur({ onBlur, onChange, name }, type) {
+  return (e) => {
+    const raw = e.target.value;
+    const trimmed = typeof raw === "string" ? raw.trim() : raw;
+
+    if (type !== "password" && onChange && trimmed !== raw) {
+      onChange({ ...e, target: { ...e.target, name: name ?? e.target.name, value: trimmed } });
+    }
+
+    onBlur?.(e);
+  };
+}
+
 export const asPan = (v) => v.toUpperCase().replace(/[^A-Z0-9]/g, "");
 // Licence numbers are printed in upper case; normalize so the pattern (A-Z only)
 // doesn't punish someone typing lower case, and drop characters that can't appear.
