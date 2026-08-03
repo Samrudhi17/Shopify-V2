@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function VendorDashboard() {
+  usePageTitle("Dashboard");
   const { user } = useAuth();
   const [stats, setStats] = useState({ totalProducts: 0, totalCategories: 0, totalStock: 0 });
   const [recent, setRecent] = useState([]);

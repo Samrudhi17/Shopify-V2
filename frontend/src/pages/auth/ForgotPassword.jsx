@@ -3,8 +3,10 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "../../services/firebase";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function ForgotPassword() {
+  usePageTitle("Reset Password");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -29,7 +31,7 @@ export default function ForgotPassword() {
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="brand" style={{ marginBottom: 18 }}>
-          <span className="brand-mark">▦</span> QR Digital Shop
+          <span className="brand-mark">▦</span> ScanStore
         </div>
         <h2>Forgot password</h2>
         <p className="auth-sub">We'll email you a reset link.</p>

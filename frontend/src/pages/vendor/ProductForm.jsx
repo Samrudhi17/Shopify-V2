@@ -8,6 +8,7 @@ import { uploadMany } from "../../services/uploads";
 import { useAuth } from "../../context/AuthContext";
 import { COLORS } from "../../constants/colors";
 import { FILE_RULES, formatBytes, validateFile } from "../../constants/validation";
+import usePageTitle from "../../hooks/usePageTitle";
 
 const initial = {
   productName: "", productType: "", description: "", brand: "",
@@ -21,6 +22,7 @@ export default function ProductForm() {
   const { user } = useAuth();
   const { id } = useParams(); // present => edit mode
   const isEdit = Boolean(id);
+  usePageTitle(isEdit ? "Edit Product" : "Add Product");
   const [form, setForm] = useState(initial);
   const [categories, setCategories] = useState([]);
   // Each entry is { file, url } — url is an object URL used for the thumbnail

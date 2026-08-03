@@ -6,8 +6,10 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "../../services/firebase";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function Login() {
+  usePageTitle("Login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -40,7 +42,7 @@ export default function Login() {
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="brand" style={{ marginBottom: 18 }}>
-          <span className="brand-mark">▦</span> QR Digital Shop
+          <span className="brand-mark">▦</span> ScanStore
         </div>
         <h2>Welcome back</h2>
         <p className="auth-sub">Log in to manage your shop.</p>

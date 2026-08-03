@@ -1,6 +1,6 @@
-# QR Based Digital Shop Catalog Platform
+# ScanStore
 
-Digital catalog platform for local businesses. Vendors register a shop, add
+ScanStore is a digital catalog platform for local businesses. Vendors register a shop, add
 products/inventory, and get a unique **catalog URL** (`domain/shopname`) plus a
 **QR code** customers scan to browse the shop on their phones.
 

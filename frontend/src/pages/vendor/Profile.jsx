@@ -11,6 +11,7 @@ import {
   FILE_RULES, MESSAGES, formatBytes, onlyDigits, asPan, asShopActNo,
   validateField, validateFile, validateImageFile, validateForm,
 } from "../../constants/validation";
+import usePageTitle from "../../hooks/usePageTitle";
 
 const initial = {
   shopName: "",
@@ -29,6 +30,7 @@ const FIELDS = [
 ];
 
 export default function Profile() {
+  usePageTitle("Profile");
   const { user } = useAuth();
   const [shop, setShop] = useState(null);
   const [loading, setLoading] = useState(true);

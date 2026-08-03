@@ -1,8 +1,10 @@
 // Admin: all shops with activate/deactivate (deactivating hides the catalog).
 import { useEffect, useState } from "react";
 import api from "../../services/api";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function AdminShops() {
+  usePageTitle("Shops");
   const [shops, setShops] = useState([]);
 
   const load = () => api.get("/admin/shops").then((r) => setShops(r.data)).catch(() => {});

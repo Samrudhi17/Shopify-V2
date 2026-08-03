@@ -3,8 +3,10 @@ import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { PHONE_FIELD, onlyDigits } from "../../constants/validation";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function Settings() {
+  usePageTitle("Settings");
   const { user, logout } = useAuth();
   const [shop, setShop] = useState(null);
   const [form, setForm] = useState({ phone: "", alternateNumber: "", address: "" });

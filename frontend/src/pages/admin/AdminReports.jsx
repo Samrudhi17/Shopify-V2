@@ -1,8 +1,10 @@
 // Admin Reports: active vs inactive shops analysis.
 import { useEffect, useState } from "react";
 import api from "../../services/api";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function AdminReports() {
+  usePageTitle("Reports");
   const [s, setS] = useState({ totalVendors: 0, totalShops: 0, activeShops: 0, inactiveShops: 0 });
 
   useEffect(() => { api.get("/admin/stats").then((r) => setS(r.data)).catch(() => {}); }, []);

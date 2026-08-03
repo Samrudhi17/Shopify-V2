@@ -5,6 +5,7 @@ import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { loadRazorpayCheckout } from "../../services/razorpay";
 import useSubscription from "../../hooks/useSubscription";
+import usePageTitle from "../../hooks/usePageTitle";
 
 // 30 -> 1 month, 182 -> 6, 365 -> 12.
 const monthsOf = (durationDays) => Math.max(1, Math.round(durationDays / 30));
@@ -79,6 +80,7 @@ function CurrentPlanCard({ subscription }) {
 }
 
 export default function Plans() {
+  usePageTitle("Plans & Billing");
   const { user } = useAuth();
   const { subscription, refresh } = useSubscription();
   const [plans, setPlans] = useState([]);
@@ -128,7 +130,7 @@ export default function Plans() {
         order_id: order.orderId,
         amount: order.amountPaise,
         currency: order.currency,
-        name: "QR Digital Shop",
+        name: "ScanStore",
         description: `${order.planName} subscription`,
         prefill: { name: user?.name || "", email: user?.email || "" },
         theme: { color: "#7c3aed" },

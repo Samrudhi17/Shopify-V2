@@ -6,6 +6,7 @@ import { useParams } from "react-router-dom";
 import api from "../../services/api";
 import Anim from "../../components/Anim";
 import ImageCarousel from "../../components/ImageCarousel";
+import usePageTitle from "../../hooks/usePageTitle";
 
 const ALL = "All";
 
@@ -18,6 +19,10 @@ export default function ShopCatalog() {
 
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState({ category: ALL, type: ALL, size: ALL, color: ALL });
+
+  // This is the page a customer lands on from a QR code, so the tab should read
+  // as the shop's own storefront rather than ours.
+  usePageTitle(shop?.shopName || "Shop");
 
   useEffect(() => {
     api.get(`/catalog/${shopSlug}`)
@@ -109,7 +114,7 @@ export default function ShopCatalog() {
       </div>
 
       <footer className="catalog-footer">
-        {shop.shopName} · <a href={`tel:${shop.phone}`}>📞 {shop.phone}</a> · Powered by QR Digital Shop
+        {shop.shopName} · <a href={`tel:${shop.phone}`}>📞 {shop.phone}</a> · Powered by ScanStore
       </footer>
     </div>
   );

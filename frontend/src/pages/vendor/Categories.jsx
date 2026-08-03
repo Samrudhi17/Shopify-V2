@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import usePageTitle from "../../hooks/usePageTitle";
 
 const ICONS = { Men: "👔", Women: "👗", Kids: "🧒" };
 
 export default function Categories() {
+  usePageTitle("Categories");
   const { user } = useAuth();
   const [categories, setCategories] = useState([]);
   const [selected, setSelected] = useState(() => new Set());

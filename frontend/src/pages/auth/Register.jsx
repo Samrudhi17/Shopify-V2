@@ -15,6 +15,7 @@ import {
   AADHAAR_FIELD, ADDRESS_FIELD, EMAIL_FIELD, NAME_FIELD, PHONE_FIELD,
   asName, onlyDigits, validateField, validateForm,
 } from "../../constants/validation";
+import usePageTitle from "../../hooks/usePageTitle";
 
 const initial = {
   name: "",
@@ -34,6 +35,7 @@ const FIELDS = [
 ];
 
 export default function Register() {
+  usePageTitle("Register");
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
@@ -112,7 +114,7 @@ export default function Register() {
     <div className="auth-wrap">
       <div className="auth-card" style={{ maxWidth: 480 }}>
         <div className="brand" style={{ marginBottom: 6 }}>
-          <span className="brand-mark">▦</span> QR Digital Shop
+          <span className="brand-mark">▦</span> ScanStore
         </div>
         <Anim name="account" size={130} style={{ margin: "0 auto 4px" }} />
         <h2>Create your account</h2>

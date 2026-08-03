@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../../services/api";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function Shops() {
+  usePageTitle("Browse Shops");
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -28,7 +30,7 @@ export default function Shops() {
     <div>
       <nav className="nav">
         <Link to="/" className="brand" style={{ textDecoration: "none" }}>
-          <span className="brand-mark">▦</span> QR Digital Shop
+          <span className="brand-mark">▦</span> ScanStore
         </Link>
         <div className="nav-links">
           <Link to="/shops">Shops</Link>
@@ -109,7 +111,7 @@ export default function Shops() {
         </div>
       </section>
 
-      <footer className="footer">© {new Date().getFullYear()} QR Digital Shop · Built for local businesses</footer>
+      <footer className="footer">© {new Date().getFullYear()} ScanStore · Built for local businesses</footer>
     </div>
   );
 }

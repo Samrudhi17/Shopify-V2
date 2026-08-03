@@ -3,8 +3,10 @@
 // deactivating that vendor's shop, on the Shops page.
 import { useEffect, useState } from "react";
 import api from "../../services/api";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function AdminVendors() {
+  usePageTitle("Vendors");
   const [vendors, setVendors] = useState([]);
 
   useEffect(() => {

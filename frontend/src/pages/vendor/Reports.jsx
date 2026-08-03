@@ -3,8 +3,10 @@ import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import Anim from "../../components/Anim";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function Reports() {
+  usePageTitle("Reports");
   const { user } = useAuth();
   const [r, setR] = useState(null);
 

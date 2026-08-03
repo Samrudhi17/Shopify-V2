@@ -2,8 +2,10 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function QrCodePage() {
+  usePageTitle("QR Code");
   const { user } = useAuth();
   const [qr, setQr] = useState(null);
   useEffect(() => {

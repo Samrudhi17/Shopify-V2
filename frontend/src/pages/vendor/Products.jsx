@@ -6,6 +6,7 @@ import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import Anim from "../../components/Anim";
 import ImageCarousel from "../../components/ImageCarousel";
+import usePageTitle from "../../hooks/usePageTitle";
 
 const ALL = "All";
 
@@ -19,6 +20,7 @@ function normalize(p) {
 }
 
 export default function Products() {
+  usePageTitle("Products");
   const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [filters, setFilters] = useState({ type: ALL, category: ALL, size: ALL, color: ALL });

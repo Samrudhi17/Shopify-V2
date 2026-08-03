@@ -1,5 +1,6 @@
 // Landing page: hero, features (Services), About, Contact + Login/Register.
 import { Link } from "react-router-dom";
+import usePageTitle from "../../hooks/usePageTitle";
 
 const features = [
   { icon: "🔗", title: "Auto Catalog URL", text: "Register your shop and instantly get a shareable catalog link — domain/yourshop." },
@@ -9,11 +10,12 @@ const features = [
 ];
 
 export default function Home() {
+  usePageTitle("Home");
   return (
     <div>
       <nav className="nav">
         <div className="brand">
-          <span className="brand-mark">▦</span> QR Digital Shop
+          <span className="brand-mark">▦</span> ScanStore
         </div>
         <div className="nav-links">
           
@@ -81,7 +83,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="footer">© {new Date().getFullYear()} QR Digital Shop · Built for local businesses</footer>
+      <footer className="footer">© {new Date().getFullYear()} ScanStore · Built for local businesses</footer>
     </div>
   );
 }

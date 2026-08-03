@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function AdminDashboard() {
+  usePageTitle("Admin Dashboard");
   const { user } = useAuth();
   const [stats, setStats] = useState({ totalVendors: 0, totalShops: 0, activeShops: 0, inactiveShops: 0 });
   const [shops, setShops] = useState([]);

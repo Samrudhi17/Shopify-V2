@@ -1,6 +1,7 @@
 // Admin Settings: roles & permissions overview + admin accounts.
 import { useEffect, useState } from "react";
 import api from "../../services/api";
+import usePageTitle from "../../hooks/usePageTitle";
 
 const ROLES = [
   { role: "Admin", perms: ["Manage vendors", "Activate / deactivate shops", "View all reports", "System settings"] },
@@ -8,6 +9,7 @@ const ROLES = [
 ];
 
 export default function AdminSettings() {
+  usePageTitle("Settings");
   const [admins, setAdmins] = useState([]);
   useEffect(() => { api.get("/admin/admins").then((r) => setAdmins(r.data)).catch(() => {}); }, []);
 

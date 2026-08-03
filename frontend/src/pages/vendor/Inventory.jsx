@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import usePageTitle from "../../hooks/usePageTitle";
 
 export default function Inventory() {
+  usePageTitle("Inventory");
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
 
