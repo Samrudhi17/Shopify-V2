@@ -46,9 +46,13 @@ public class AiDescriptionService : IAiDescriptionService
         _http = http;
 
         _apiKey = config["AI_API_KEY"];
-        _model = config["AI_MODEL"] ?? "gpt-4o-mini";
 
-        var baseUrl = config["AI_BASE_URL"] ?? "https://api.openai.com/v1/";
+        // Defaults to Gemini's OpenAI-compatible endpoint because it is the only
+        // one of the three with a genuine free tier. Override both in .env to
+        // point at DeepSeek or OpenAI instead.
+        _model = config["AI_MODEL"] ?? "gemini-3.6-flash";
+
+        var baseUrl = config["AI_BASE_URL"] ?? "https://generativelanguage.googleapis.com/v1beta/openai/";
         if (!baseUrl.EndsWith('/')) baseUrl += "/";
         _http.BaseAddress = new Uri(baseUrl);
 
