@@ -17,14 +17,17 @@ public class SubscriptionsController : ControllerBase
     private readonly ICurrentUser _me;
     private readonly IRazorpayService _razorpay;
     private readonly ISubscriptionService _subscriptions;
+    private readonly ILogger<SubscriptionsController> _log;
 
     public SubscriptionsController(
-        AppDbContext db, ICurrentUser me, IRazorpayService razorpay, ISubscriptionService subscriptions)
+        AppDbContext db, ICurrentUser me, IRazorpayService razorpay,
+        ISubscriptionService subscriptions, ILogger<SubscriptionsController> log)
     {
         _db = db;
         _me = me;
         _razorpay = razorpay;
         _subscriptions = subscriptions;
+        _log = log;
     }
 
     // GET /api/subscriptions/plans — the pricing table. Public so the marketing
@@ -144,8 +147,11 @@ public class SubscriptionsController : ControllerBase
         }
         catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
         {
-            // Razorpay being down is not the vendor's fault, and the message can
-            // carry provider detail that should not reach the browser.
+            // The vendor gets a generic message — the provider's response can name
+            // keys and account state — but the real reason has to reach the logs,
+            // or a misconfigured server is an unexplained 502 with nothing to go on.
+            _log.LogError(ex, "Razorpay order creation failed for vendor {VendorId}, plan {PlanCode}.",
+                vendorId, plan.Code);
             return StatusCode(502, new { message = "Could not reach the payment provider. Please try again." });
         }
 
