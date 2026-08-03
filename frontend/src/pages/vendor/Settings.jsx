@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import { PHONE_FIELD, onlyDigits } from "../../constants/validation";
 
 export default function Settings() {
   const { user, logout } = useAuth();
@@ -18,7 +19,12 @@ export default function Settings() {
     }).catch(() => {});
   }, [user]);
 
-  const set = (k) => (e) => { setForm({ ...form, [k]: e.target.value }); setSaved(false); };
+  // `transform` normalizes as the user types (e.g. strip non-digits from a phone).
+  const set = (k, transform) => (e) => {
+    const v = e.target.value;
+    setForm({ ...form, [k]: transform ? transform(v) : v });
+    setSaved(false);
+  };
 
   async function save(e) {
     e.preventDefault();
@@ -47,11 +53,11 @@ export default function Settings() {
           <h3 style={{ marginBottom: 14 }}>Contact details (shown on your catalog)</h3>
           <form onSubmit={save}>
             <label className="field"><span>Phone *</span>
-              <input className="input" value={form.phone} onChange={set("phone")} required /></label>
+              <input className="input" value={form.phone} onChange={set("phone", onlyDigits)} required {...PHONE_FIELD} /></label>
             <label className="field"><span>Alternate Number</span>
-              <input className="input" value={form.alternateNumber} onChange={set("alternateNumber")} /></label>
+              <input className="input" value={form.alternateNumber} onChange={set("alternateNumber", onlyDigits)} {...PHONE_FIELD} /></label>
             <label className="field"><span>Address *</span>
-              <input className="input" value={form.address} onChange={set("address")} required /></label>
+              <input className="input" value={form.address} onChange={set("address")} required minLength={5} maxLength={255} /></label>
             {saved && <div className="alert alert-success">Saved.</div>}
             <button className="btn btn-primary" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button>
           </form>

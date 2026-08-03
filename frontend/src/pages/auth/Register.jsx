@@ -7,6 +7,9 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "../../services/firebase";
 import api from "../../services/api";
 import Anim from "../../components/Anim";
+import {
+  AADHAAR_FIELD, EMAIL_FIELD, PHONE_FIELD, onlyDigits,
+} from "../../constants/validation";
 
 const initial = {
   name: "",
@@ -23,7 +26,9 @@ export default function Register() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  // `transform` normalizes as the user types (e.g. strip non-digits from a phone).
+  const set = (k, transform) => (e) =>
+    setForm({ ...form, [k]: transform ? transform(e.target.value) : e.target.value });
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -55,15 +60,15 @@ export default function Register() {
         <p className="auth-sub">Register as a vendor and set up your shop.</p>
 
         <form onSubmit={handleSubmit}>
-          <Field label="Name *" value={form.name} onChange={set("name")} required />
-          <Field label="Email *" type="email" value={form.email} onChange={set("email")} required />
+          <Field label="Name *" value={form.name} onChange={set("name")} required maxLength={150} />
+          <Field label="Email *" value={form.email} onChange={set("email")} required {...EMAIL_FIELD} />
           <Field label="Password *" type="password" value={form.password} onChange={set("password")} required />
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <Field label="Phone Number *" value={form.phone} onChange={set("phone")} required />
-            <Field label="Alternate Phone" value={form.alternatePhone} onChange={set("alternatePhone")} />
+            <Field label="Phone Number *" value={form.phone} onChange={set("phone", onlyDigits)} required {...PHONE_FIELD} />
+            <Field label="Alternate Phone" value={form.alternatePhone} onChange={set("alternatePhone", onlyDigits)} {...PHONE_FIELD} />
           </div>
-          <Field label="Aadhaar Card *" value={form.aadhaarCardNo} onChange={set("aadhaarCardNo")} required />
-          <Field label="Address *" value={form.address} onChange={set("address")} required />
+          <Field label="Aadhaar Card *" value={form.aadhaarCardNo} onChange={set("aadhaarCardNo", onlyDigits)} required {...AADHAAR_FIELD} />
+          <Field label="Address *" value={form.address} onChange={set("address")} required minLength={5} maxLength={255} />
           {error && <div className="alert alert-error">{error}</div>}
           <button type="submit" className="btn btn-primary btn-block">Register</button>
         </form>

@@ -5,6 +5,10 @@ import api from "../../services/api";
 import { uploadFile } from "../../services/uploads";
 import { useAuth } from "../../context/AuthContext";
 import Anim from "../../components/Anim";
+import {
+  AADHAAR_FIELD, PAN_FIELD, PHONE_FIELD, SHOP_ACT_FIELD,
+  onlyDigits, asPan, asShopActNo,
+} from "../../constants/validation";
 
 const initial = {
   shopName: "",
@@ -27,7 +31,9 @@ export default function Profile() {
   const [submitting, setSubmitting] = useState(false);
   const [justCreated, setJustCreated] = useState(false);
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  // `transform` normalizes as the user types (e.g. upper-case a PAN).
+  const set = (k, transform) => (e) =>
+    setForm({ ...form, [k]: transform ? transform(e.target.value) : e.target.value });
 
   // Load the vendor's existing shop (if any).
   useEffect(() => {
@@ -140,20 +146,20 @@ export default function Profile() {
 
       <div className="card">
         <form onSubmit={handleSubmit}>
-          <F label="Shop Name * (must be unique)" value={form.shopName} onChange={set("shopName")} required />
+          <F label="Shop Name * (must be unique)" value={form.shopName} onChange={set("shopName")} required minLength={2} maxLength={150} />
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <F label="Aadhaar Card *" value={form.aadhaarCardNo} onChange={set("aadhaarCardNo")} required />
-            <F label="PAN Card *" value={form.pancardNo} onChange={set("pancardNo")} required />
+            <F label="Aadhaar Card *" value={form.aadhaarCardNo} onChange={set("aadhaarCardNo", onlyDigits)} required {...AADHAAR_FIELD} />
+            <F label="PAN Card *" value={form.pancardNo} onChange={set("pancardNo", asPan)} required {...PAN_FIELD} />
           </div>
-          <F label="Shop Act No *" value={form.shopActNo} onChange={set("shopActNo")} required />
+          <F label="Shop Act No *" value={form.shopActNo} onChange={set("shopActNo", asShopActNo)} required {...SHOP_ACT_FIELD} />
           <label className="field">
             <span>Shop Act Certificate * (PDF / Image)</span>
             <input className="input" type="file" accept=".pdf,image/*" onChange={(e) => setCertificate(e.target.files[0])} required />
           </label>
-          <F label="Address *" value={form.address} onChange={set("address")} required />
+          <F label="Address *" value={form.address} onChange={set("address")} required minLength={5} maxLength={255} />
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <F label="Phone *" value={form.phone} onChange={set("phone")} required />
-            <F label="Alternate Number" value={form.alternateNumber} onChange={set("alternateNumber")} />
+            <F label="Phone *" value={form.phone} onChange={set("phone", onlyDigits)} required {...PHONE_FIELD} />
+            <F label="Alternate Number" value={form.alternateNumber} onChange={set("alternateNumber", onlyDigits)} {...PHONE_FIELD} />
           </div>
           <label className="field">
             <span>Logo</span>
