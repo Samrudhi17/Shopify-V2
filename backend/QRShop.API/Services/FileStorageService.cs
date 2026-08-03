@@ -3,17 +3,21 @@ namespace QRShop.API.Services;
 public interface IFileStorageService
 {
     // Saves an uploaded file under wwwroot/uploads/<subfolder> and returns a
-    // public URL (e.g. http://localhost:5152/uploads/products/<guid>.jpg).
+    // ROOT-RELATIVE path (e.g. /uploads/products/<guid>.jpg).
+    //
+    // Relative on purpose: an absolute URL bakes the current host into the
+    // database, so every row breaks when the site moves between localhost,
+    // staging and the real domain. The browser resolves these against whatever
+    // origin served the page, and nginx proxies /uploads/ to this API.
     Task<string> SaveAsync(IFormFile file, string subfolder);
 
-    // Saves raw bytes (e.g. a generated QR PNG) and returns its public URL.
+    // Saves raw bytes (e.g. a generated QR PNG) and returns its relative path.
     Task<string> SaveBytesAsync(byte[] bytes, string subfolder, string extension);
 }
 
 public class FileStorageService : IFileStorageService
 {
     private readonly IWebHostEnvironment _env;
-    private readonly IHttpContextAccessor _http;
 
     // Per-folder upload limits, mirrored by FILE_RULES in the client's
     // constants/validation.js. A certificate may be a scan or a PDF; a logo is
@@ -38,11 +42,7 @@ public class FileStorageService : IFileStorageService
     private static string Describe(long bytes) =>
         bytes >= 1024 * 1024 ? $"{bytes / (1024 * 1024)} MB" : $"{bytes / 1024} KB";
 
-    public FileStorageService(IWebHostEnvironment env, IHttpContextAccessor http)
-    {
-        _env = env;
-        _http = http;
-    }
+    public FileStorageService(IWebHostEnvironment env) => _env = env;
 
     public async Task<string> SaveAsync(IFormFile file, string subfolder)
     {
@@ -89,10 +89,7 @@ public class FileStorageService : IFileStorageService
         return BuildUrl(subfolder, fileName);
     }
 
-    private string BuildUrl(string subfolder, string fileName)
-    {
-        var request = _http.HttpContext!.Request;
-        var baseUrl = $"{request.Scheme}://{request.Host}";
-        return $"{baseUrl}/uploads/{subfolder}/{fileName}";
-    }
+    // Root-relative, with no scheme or host — see the interface for why.
+    private static string BuildUrl(string subfolder, string fileName) =>
+        $"/uploads/{subfolder}/{fileName}";
 }

@@ -67,8 +67,7 @@ public class ShopsController : ControllerBase
         while (await _db.Shops.AnyAsync(s => s.Slug == slug))
             slug = $"{baseSlug}-{++n}";
 
-        var publicBase = _config["AppSettings:PublicBaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
-        var catalogUrl = $"{publicBase}/{slug}";
+        var catalogUrl = PublicUrls.Catalog(_config, slug);
 
         var shop = new Shop
         {
@@ -138,7 +137,9 @@ public class ShopsController : ControllerBase
         return new ShopDetailsResponse(
             shop.ShopId, shop.ShopName, shop.ShopType, shop.Address, shop.Phone,
             shop.AlternateNumber, shop.AadhaarCardNo, shop.PancardNo, shop.ShopActNo,
-            shop.ShopActCertificateUrl, shop.LogoUrl, shop.Slug ?? "", shop.CatalogUrl ?? "",
+            shop.ShopActCertificateUrl, shop.LogoUrl, shop.Slug ?? "",
+            // Computed, not read from the column, so it follows PUBLIC_BASE_URL.
+            PublicUrls.Catalog(_config, shop.Slug),
             shop.QrCode?.QrImagePath, shop.Status);
     }
 
@@ -153,7 +154,67 @@ public class ShopsController : ControllerBase
         if (shop?.QrCode is null)
             return NotFound(new { message = "No shop/QR found for this vendor." });
 
-        return Ok(new { catalogUrl = shop.QrCode.CatalogUrl, qrImagePath = shop.QrCode.QrImagePath });
+        return Ok(new
+        {
+            catalogUrl = PublicUrls.Catalog(_config, shop.Slug),
+            qrImagePath = shop.QrCode.QrImagePath,
+        });
+    }
+
+    // POST /api/shops/{id}/regenerate-qr — re-render the QR PNG so it encodes the
+    // CURRENT PUBLIC_BASE_URL. The target URL is drawn inside the image, so
+    // changing the domain (localhost -> yourdomain.com) leaves every existing QR
+    // pointing at the old address until this runs.
+    [HttpPost("{id:int}/regenerate-qr")]
+    public async Task<IActionResult> RegenerateQr(int id)
+    {
+        var shop = await _db.Shops.Include(s => s.QrCode).FirstOrDefaultAsync(s => s.ShopId == id);
+        if (shop is null) return NotFound(new { message = "Shop not found." });
+
+        var catalogUrl = PublicUrls.Catalog(_config, shop.Slug);
+        var qrImagePath = await GenerateQrAsync(catalogUrl);
+
+        if (shop.QrCode is null)
+            _db.QrCodes.Add(new QrCode { ShopId = shop.ShopId, CatalogUrl = catalogUrl, QrImagePath = qrImagePath });
+        else
+        {
+            shop.QrCode.CatalogUrl = catalogUrl;
+            shop.QrCode.QrImagePath = qrImagePath;
+        }
+
+        shop.CatalogUrl = catalogUrl;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { shop.ShopId, shop.ShopName, catalogUrl, qrImagePath });
+    }
+
+    // POST /api/shops/regenerate-all-qr — same, for every shop. Run this once
+    // after deploying to a new domain.
+    [HttpPost("regenerate-all-qr")]
+    public async Task<IActionResult> RegenerateAllQr()
+    {
+        var shops = await _db.Shops.Include(s => s.QrCode).ToListAsync();
+        var results = new List<object>();
+
+        foreach (var shop in shops)
+        {
+            var catalogUrl = PublicUrls.Catalog(_config, shop.Slug);
+            var qrImagePath = await GenerateQrAsync(catalogUrl);
+
+            if (shop.QrCode is null)
+                _db.QrCodes.Add(new QrCode { ShopId = shop.ShopId, CatalogUrl = catalogUrl, QrImagePath = qrImagePath });
+            else
+            {
+                shop.QrCode.CatalogUrl = catalogUrl;
+                shop.QrCode.QrImagePath = qrImagePath;
+            }
+
+            shop.CatalogUrl = catalogUrl;
+            results.Add(new { shop.ShopId, shop.ShopName, catalogUrl, qrImagePath });
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { regenerated = results.Count, shops = results });
     }
 
     private async Task<string> GenerateQrAsync(string url)

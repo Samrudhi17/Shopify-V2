@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRShop.API.Data;
+using QRShop.API.Services;
 
 namespace QRShop.API.Controllers;
 
@@ -9,8 +10,13 @@ namespace QRShop.API.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IConfiguration _config;
 
-    public AdminController(AppDbContext db) => _db = db;
+    public AdminController(AppDbContext db, IConfiguration config)
+    {
+        _db = db;
+        _config = config;
+    }
 
     // GET /api/admin/stats — dashboard cards (updates as vendors/shops register).
     [HttpGet("stats")]
@@ -46,11 +52,18 @@ public class AdminController : ControllerBase
             .OrderByDescending(s => s.ShopId)
             .Select(s => new
             {
-                s.ShopId, s.ShopName, s.Slug, s.Phone, s.Address, s.Status, s.CatalogUrl,
+                s.ShopId, s.ShopName, s.Slug, s.Phone, s.Address, s.Status,
                 VendorName = s.Vendor!.Name,
             })
             .ToListAsync();
-        return Ok(shops);
+
+        // Computed after materialising, so it always follows PUBLIC_BASE_URL.
+        var withUrls = shops.Select(s => new
+        {
+            s.ShopId, s.ShopName, s.Slug, s.Phone, s.Address, s.Status, s.VendorName,
+            CatalogUrl = PublicUrls.Catalog(_config, s.Slug),
+        });
+        return Ok(withUrls);
     }
 
     // PUT /api/admin/shops/5/status  { "status": "Active" | "Inactive" }

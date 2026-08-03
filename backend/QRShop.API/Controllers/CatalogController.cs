@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRShop.API.Data;
+using QRShop.API.Services;
 using QRShop.API.DTOs;
 
 namespace QRShop.API.Controllers;
@@ -11,8 +12,13 @@ namespace QRShop.API.Controllers;
 public class CatalogController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IConfiguration _config;
 
-    public CatalogController(AppDbContext db) => _db = db;
+    public CatalogController(AppDbContext db, IConfiguration config)
+    {
+        _db = db;
+        _config = config;
+    }
 
     // GET /api/catalog — public directory of Active shops, for the "Shops" page
     // on the marketing site. Inactive shops are hidden, matching the rule that
@@ -70,7 +76,8 @@ public class CatalogController : ControllerBase
             .ToListAsync();
 
         var shopDto = new CatalogShop(
-            shop.ShopName, shop.LogoUrl, shop.Phone, shop.AlternateNumber, shop.Address, shop.CatalogUrl);
+            shop.ShopName, shop.LogoUrl, shop.Phone, shop.AlternateNumber, shop.Address,
+            PublicUrls.Catalog(_config, shop.Slug));
 
         return Ok(new { shop = shopDto, products });
     }
