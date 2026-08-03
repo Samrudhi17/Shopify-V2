@@ -4,6 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using QRShop.API.Data;
 using QRShop.API.Services;
 
+// Load the repo-root .env before configuration is built, so `dotnet run` picks
+// up the same file docker-compose uses. Real environment variables always win,
+// so containers, CI and the server are unaffected by this.
+LoadDotEnv(Directory.GetCurrentDirectory());
+
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Services ---
@@ -30,8 +35,27 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     };
 });
 
-// EF Core + MySQL
+// EF Core + MySQL.
+// docker-compose sets ConnectionStrings__DefaultConnection directly. For local
+// runs it is absent, so build it from the DB_* values in .env — that keeps the
+// password in exactly one place instead of duplicating it per environment.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
+    if (string.IsNullOrWhiteSpace(dbPassword))
+    {
+        throw new InvalidOperationException(
+            "No database configuration found. Copy .env.example to .env in the repo root " +
+            "and set DB_PASSWORD (or set ConnectionStrings__DefaultConnection directly).");
+    }
+
+    var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
+    var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "3306";
+    var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "QRShopDb";
+    var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "root";
+    connectionString = $"Server={dbHost};Port={dbPort};Database={dbName};User={dbUser};Password={dbPassword};";
+}
 builder.Services.AddDbContext<AppDbContext>(options =>
     // An explicit server version avoids EF opening a connection at startup,
     // which would fail while the database container is still booting.
@@ -122,3 +146,31 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Walks up from the working directory looking for a .env, then sets any key it
+// finds that is not already an environment variable. Deliberately does not
+// overwrite: a value exported by the shell, docker-compose or the server's
+// service manager must always take precedence over the file.
+static void LoadDotEnv(string startDirectory)
+{
+    var dir = new DirectoryInfo(startDirectory);
+    while (dir is not null && !File.Exists(Path.Combine(dir.FullName, ".env")))
+        dir = dir.Parent;
+
+    if (dir is null) return;
+
+    foreach (var rawLine in File.ReadAllLines(Path.Combine(dir.FullName, ".env")))
+    {
+        var line = rawLine.Trim();
+        if (line.Length == 0 || line.StartsWith('#')) continue;
+
+        var separator = line.IndexOf('=');
+        if (separator <= 0) continue;
+
+        var key = line[..separator].Trim();
+        var value = line[(separator + 1)..].Trim().Trim('"');
+
+        if (Environment.GetEnvironmentVariable(key) is null)
+            Environment.SetEnvironmentVariable(key, value);
+    }
+}
