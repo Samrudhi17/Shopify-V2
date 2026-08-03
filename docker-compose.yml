@@ -41,10 +41,10 @@ services:
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
       RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
       RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
-      # AI product descriptions. Empty key just disables the Generate button.
+      # Gemini product descriptions. Empty key just disables the Generate button.
       AI_API_KEY: ${AI_API_KEY:-}
-      AI_BASE_URL: ${AI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
-      AI_MODEL: ${AI_MODEL:-gemini-3.6-flash}
+      AI_BASE_URL: ${AI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/}
+      AI_MODEL: ${AI_MODEL:-gemini-flash-latest}
     volumes:
       # Uploaded images/certificates/QR codes must outlive the container.
       - uploads:/app/wwwroot/uploads
