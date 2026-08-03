@@ -92,7 +92,7 @@ export default function ProductForm() {
 
   useEffect(() => {
     if (!user?.id) return;
-    api.get(`/categories?vendorId=${user.id}`).then((r) => setCategories(r.data)).catch(() => {});
+    api.get(`/categories`).then((r) => setCategories(r.data)).catch(() => {});
   }, [user]);
 
   // Load existing product in edit mode.

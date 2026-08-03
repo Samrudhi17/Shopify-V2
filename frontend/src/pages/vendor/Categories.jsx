@@ -16,7 +16,7 @@ export default function Categories() {
 
   useEffect(() => {
     if (!user?.id) return;
-    api.get(`/categories?vendorId=${user.id}`)
+    api.get(`/categories`)
       .then((r) => {
         setCategories(r.data);
         setSelected(new Set(r.data.filter((c) => c.status === "Active").map((c) => c.categoryId)));

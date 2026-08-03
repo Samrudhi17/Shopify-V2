@@ -10,7 +10,7 @@ export default function Inventory() {
 
   useEffect(() => {
     if (!user?.id) return;
-    api.get(`/inventory?vendorId=${user.id}`).then((r) => setRows(r.data)).catch(() => {});
+    api.get(`/inventory`).then((r) => setRows(r.data)).catch(() => {});
   }, [user]);
 
   return (

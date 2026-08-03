@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using QRShop.API.Data;
 using QRShop.API.Services;
 
@@ -65,9 +67,52 @@ builder.Services.AddDbContext<AppDbContext>(options =>
             maxRetryDelay: TimeSpan.FromSeconds(10),
             errorNumbersToAdd: null)));
 
+// --- Authentication ---
+// The React client signs in with Firebase and sends the resulting ID token as a
+// bearer on every request. Verifying it needs nothing but the project id:
+// Google publishes the signing keys at the authority below and the JwtBearer
+// handler fetches and caches them, so there is no service-account JSON to ship.
+var firebaseProjectId =
+    builder.Configuration["FIREBASE_PROJECT_ID"]
+    ?? builder.Configuration["VITE_FIREBASE_PROJECT_ID"];
+
+if (string.IsNullOrWhiteSpace(firebaseProjectId))
+{
+    throw new InvalidOperationException(
+        "FIREBASE_PROJECT_ID (or VITE_FIREBASE_PROJECT_ID) is not set. Add it to .env — " +
+        "without it the API cannot verify the Firebase ID tokens the client sends.");
+}
+
+var firebaseIssuer = $"https://securetoken.google.com/{firebaseProjectId}";
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = firebaseIssuer;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = firebaseIssuer,
+            ValidateAudience = true,
+            // Firebase sets aud to the bare project id, not the issuer URL.
+            ValidAudience = firebaseProjectId,
+            ValidateLifetime = true,
+            // Tokens live an hour; allow only a little drift between hosts.
+            ClockSkew = TimeSpan.FromMinutes(2),
+        };
+    });
+builder.Services.AddAuthorization();
+
 // Local file storage for images / certificates / QR codes.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+
+// --- Billing ---
+// Typed client so the Razorpay HttpClient (base address + basic auth) is built
+// once and its connections pooled.
+builder.Services.AddHttpClient<IRazorpayService, RazorpayService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 // Behind a reverse proxy (nginx), trust X-Forwarded-* so generated file URLs
 // use the real public scheme/host instead of the container's internal address.

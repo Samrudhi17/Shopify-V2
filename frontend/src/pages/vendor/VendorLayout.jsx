@@ -1,8 +1,9 @@
 // Vendor shell: sidebar (shop name on top + menu) with a nested <Outlet/>.
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
+import useSubscription from "../../hooks/useSubscription";
 
 const menu = [
   { to: "/vendor", label: "Shop Dashboard", end: true },
@@ -12,13 +13,52 @@ const menu = [
   { to: "/vendor/inventory", label: "Inventory" },
   { to: "/vendor/qrcode", label: "QR Code" },
   { to: "/vendor/reports", label: "Reports" },
+  { to: "/vendor/plans", label: "Plans & Billing" },
   { to: "/vendor/settings", label: "Settings" },
 ];
+
+// Start warning with under a week left, and turn it urgent in the last 3 days.
+const WARN_FROM_DAYS = 7;
+const URGENT_FROM_DAYS = 3;
+
+function SubscriptionBanner({ subscription }) {
+  if (!subscription) return null;
+
+  const { isActive, daysRemaining } = subscription;
+
+  if (isActive && daysRemaining > WARN_FROM_DAYS) return null;
+
+  const urgent = !isActive || daysRemaining <= URGENT_FROM_DAYS;
+  const days = `${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`;
+
+  return (
+    <div
+      className={urgent ? "alert alert-error" : "alert"}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        ...(urgent ? {} : { background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a" }),
+      }}
+    >
+      <span>
+        {isActive
+          ? `Your ${subscription.planName} plan ends in ${days}.`
+          : "Your subscription has ended — your shop's catalog and QR code are offline."}
+      </span>
+      <Link to="/vendor/plans" className="btn btn-primary" style={{ padding: "6px 14px", fontSize: 14 }}>
+        {isActive ? "Renew now" : "Reactivate"}
+      </Link>
+    </div>
+  );
+}
 
 export default function VendorLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [shop, setShop] = useState(null);
+  const { subscription } = useSubscription();
 
   useEffect(() => {
     if (!user?.id) return;
@@ -54,6 +94,7 @@ export default function VendorLayout() {
         <button onClick={handleLogout} className="btn btn-outline" style={{ marginTop: 12 }}>Logout</button>
       </aside>
       <main className="side-content">
+        <SubscriptionBanner subscription={subscription} />
         <Outlet />
       </main>
     </div>

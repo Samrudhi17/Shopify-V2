@@ -26,7 +26,7 @@ export default function Products() {
 
   const load = () => {
     if (!user?.id) return;
-    api.get(`/products?vendorId=${user.id}`)
+    api.get(`/products`)
       .then((r) => setProducts(r.data.map(normalize)))
       .catch(() => {});
   };

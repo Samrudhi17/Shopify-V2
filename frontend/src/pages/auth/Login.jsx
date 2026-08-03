@@ -27,7 +27,7 @@ export default function Login() {
       localStorage.setItem("token", token);
 
       // Backend resolves whether this Firebase UID is an Admin or a Vendor.
-      const { data } = await api.get(`/auth/me?firebaseUid=${cred.user.uid}`);
+      const { data } = await api.get(`/auth/me`);
       login(data, token);
 
       navigate(data.role === "Admin" ? "/admin" : "/vendor");

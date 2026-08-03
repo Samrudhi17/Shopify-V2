@@ -1,25 +1,51 @@
 using System.Linq.Expressions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRShop.API.Data;
+using QRShop.API.Filters;
 using QRShop.API.DTOs;
 using QRShop.API.Models.Entities;
+using QRShop.API.Services;
 
 namespace QRShop.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ProductsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly ICurrentUser _me;
 
-    public ProductsController(AppDbContext db) => _db = db;
-
-    // GET /api/products?vendorId=1 — products for the vendor's shop (newest first).
-    [HttpGet]
-    public async Task<IActionResult> Get([FromQuery] int vendorId)
+    public ProductsController(AppDbContext db, ICurrentUser me)
     {
-        var shop = await _db.Shops.FirstOrDefaultAsync(s => s.VendorId == vendorId);
+        _db = db;
+        _me = me;
+    }
+
+    // The signed-in vendor's shop, or null if they have not created one yet.
+    private async Task<Shop?> MyShopAsync()
+    {
+        var vendorId = await _me.GetVendorIdAsync();
+        if (vendorId is null) return null;
+        return await _db.Shops.FirstOrDefaultAsync(s => s.VendorId == vendorId);
+    }
+
+    // Product ids are sequential, so every by-id endpoint has to confirm the row
+    // belongs to the caller's shop before touching it.
+    private async Task<bool> OwnsProductAsync(int productId)
+    {
+        var shop = await MyShopAsync();
+        if (shop is null) return false;
+        return await _db.Products.AnyAsync(p => p.ProductId == productId && p.ShopId == shop.ShopId);
+    }
+
+    // GET /api/products — products for the signed-in vendor's shop (newest first).
+    [HttpGet]
+    public async Task<IActionResult> Get()
+    {
+        var shop = await MyShopAsync();
         if (shop is null) return Ok(Array.Empty<object>());
 
         var products = await _db.Products
@@ -35,16 +61,19 @@ public class ProductsController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetOne(int id)
     {
+        if (!await OwnsProductAsync(id)) return NotFound();
+
         var product = await _db.Products.Where(p => p.ProductId == id).Select(Projection).FirstOrDefaultAsync();
         if (product is null) return NotFound();
         return Ok(product);
     }
 
     // POST /api/products — create a product with a variant, images, and stock.
+    [RequiresActiveSubscription]
     [HttpPost]
     public async Task<ActionResult<ProductResponse>> Create(CreateProductRequest req)
     {
-        var shop = await _db.Shops.FirstOrDefaultAsync(s => s.VendorId == req.VendorId);
+        var shop = await MyShopAsync();
         if (shop is null)
             return BadRequest(new { message = "Create your shop first (Profile) before adding products." });
 
@@ -99,9 +128,12 @@ public class ProductsController : ControllerBase
     }
 
     // PUT /api/products/5 — update product, its variant, and stock.
+    [RequiresActiveSubscription]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, UpdateProductRequest req)
     {
+        if (!await OwnsProductAsync(id)) return NotFound(new { message = "Product not found." });
+
         var product = await _db.Products
             .Include(p => p.Variants).ThenInclude(v => v.Inventory)
             .Include(p => p.Images)
@@ -144,9 +176,12 @@ public class ProductsController : ControllerBase
     }
 
     // PATCH /api/products/5/stock  { "stockQty": 9 } — adjust stock from the product page.
+    [RequiresActiveSubscription]
     [HttpPatch("{id:int}/stock")]
     public async Task<IActionResult> UpdateStock(int id, [FromBody] UpdateStockRequest body)
     {
+        if (!await OwnsProductAsync(id)) return NotFound(new { message = "Product/variant not found." });
+
         var variant = await _db.ProductVariants
             .Include(v => v.Inventory)
             .Where(v => v.ProductId == id)
@@ -174,9 +209,12 @@ public class ProductsController : ControllerBase
     }
 
     // DELETE /api/products/5 — remove a product and its variant/inventory/images.
+    [RequiresActiveSubscription]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
+        if (!await OwnsProductAsync(id)) return NotFound(new { message = "Product not found." });
+
         var product = await _db.Products
             .Include(p => p.Variants).ThenInclude(v => v.Inventory)
             .Include(p => p.Variants).ThenInclude(v => v.StockHistory)

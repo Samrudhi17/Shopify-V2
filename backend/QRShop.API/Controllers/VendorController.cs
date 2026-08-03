@@ -1,21 +1,30 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRShop.API.Data;
+using QRShop.API.Services;
 
 namespace QRShop.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class VendorController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly ICurrentUser _me;
 
-    public VendorController(AppDbContext db) => _db = db;
-
-    // GET /api/vendor/stats?vendorId=1 — cards for the vendor dashboard.
-    [HttpGet("stats")]
-    public async Task<IActionResult> Stats([FromQuery] int vendorId)
+    public VendorController(AppDbContext db, ICurrentUser me)
     {
+        _db = db;
+        _me = me;
+    }
+
+    // GET /api/vendor/stats — cards for the signed-in vendor's dashboard.
+    [HttpGet("stats")]
+    public async Task<IActionResult> Stats()
+    {
+        var vendorId = await _me.GetVendorIdAsync();
         var shop = await _db.Shops.FirstOrDefaultAsync(s => s.VendorId == vendorId);
         if (shop is null)
             return Ok(new { totalProducts = 0, totalCategories = 0, totalStock = 0 });
@@ -29,10 +38,11 @@ public class VendorController : ControllerBase
         return Ok(new { totalProducts, totalCategories, totalStock });
     }
 
-    // GET /api/vendor/reports?vendorId=1 — analytics for the vendor Reports page.
+    // GET /api/vendor/reports — analytics for the vendor Reports page.
     [HttpGet("reports")]
-    public async Task<IActionResult> Reports([FromQuery] int vendorId)
+    public async Task<IActionResult> Reports()
     {
+        var vendorId = await _me.GetVendorIdAsync();
         var shop = await _db.Shops.FirstOrDefaultAsync(s => s.VendorId == vendorId);
         if (shop is null)
             return Ok(new { totalProducts = 0, totalStock = 0, stockValue = 0m, byCategory = Array.Empty<object>(), byType = Array.Empty<object>(), lowStock = Array.Empty<object>() });

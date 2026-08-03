@@ -1,12 +1,16 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRShop.API.Data;
+using QRShop.API.Filters;
 using QRShop.API.Services;
 
 namespace QRShop.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
+[AdminOnly]
 public class AdminController : ControllerBase
 {
     private readonly AppDbContext _db;

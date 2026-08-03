@@ -8,7 +8,7 @@ export default function QrCodePage() {
   const [qr, setQr] = useState(null);
   useEffect(() => {
     if (!user?.id) return;
-    api.get(`/shops/qrcode?vendorId=${user.id}`).then((r) => setQr(r.data)).catch(() => {});
+    api.get("/shops/qrcode").then((r) => setQr(r.data)).catch(() => {});
   }, [user]);
 
   return (

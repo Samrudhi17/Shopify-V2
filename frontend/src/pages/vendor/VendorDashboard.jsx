@@ -13,8 +13,8 @@ export default function VendorDashboard() {
 
   useEffect(() => {
     if (!user?.id) return;
-    api.get(`/vendor/stats?vendorId=${user.id}`).then((r) => setStats(r.data)).catch(() => {});
-    api.get(`/products?vendorId=${user.id}`).then((r) => setRecent(r.data.slice(0, 6))).catch(() => {});
+    api.get(`/vendor/stats`).then((r) => setStats(r.data)).catch(() => {});
+    api.get(`/products`).then((r) => setRecent(r.data.slice(0, 6))).catch(() => {});
   }, [user]);
 
   return (

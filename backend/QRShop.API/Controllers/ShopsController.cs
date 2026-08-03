@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRCoder;
 using QRShop.API.Data;
 using QRShop.API.DTOs;
+using QRShop.API.Filters;
 using QRShop.API.Models.Entities;
 using QRShop.API.Services;
 
@@ -10,22 +12,29 @@ namespace QRShop.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ShopsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IFileStorageService _storage;
     private readonly IConfiguration _config;
+    private readonly ICurrentUser _me;
 
-    public ShopsController(AppDbContext db, IFileStorageService storage, IConfiguration config)
+    public ShopsController(AppDbContext db, IFileStorageService storage, IConfiguration config, ICurrentUser me)
     {
         _db = db;
         _storage = storage;
         _config = config;
+        _me = me;
     }
 
     // GET /api/shops/name-available?name=Gokul — live check for the registration
     // form. Advisory only: Create re-checks, because another vendor can claim the
     // name between this call and the submit.
+    //
+    // Anonymous: the shop form is filled in before the vendor profile exists, and
+    // this leaks nothing beyond whether a public shop name is taken.
+    [AllowAnonymous]
     [HttpGet("name-available")]
     public async Task<IActionResult> NameAvailable([FromQuery] string name)
     {
@@ -38,14 +47,16 @@ public class ShopsController : ControllerBase
     }
 
     // POST /api/shops — register a shop, generate catalog URL + QR code.
+    [RequiresActiveSubscription]
     [HttpPost]
     public async Task<ActionResult<ShopResponse>> Create(CreateShopRequest req)
     {
-        var vendor = await _db.Vendors.FindAsync(req.VendorId);
+        // The owner is whoever holds the token, not whoever the body names.
+        var vendor = await _me.GetVendorAsync();
         if (vendor is null)
             return BadRequest(new { message = "Vendor not found." });
 
-        if (await _db.Shops.AnyAsync(s => s.VendorId == req.VendorId))
+        if (await _db.Shops.AnyAsync(s => s.VendorId == vendor.VendorId))
             return Conflict(new { message = "This vendor already has a shop." });
 
         if (string.IsNullOrWhiteSpace(req.ShopName))
@@ -71,7 +82,7 @@ public class ShopsController : ControllerBase
 
         var shop = new Shop
         {
-            VendorId = req.VendorId,
+            VendorId = vendor.VendorId,
             ShopName = shopName,
             ShopType = "Cloth",
             AadhaarCardNo = req.AadhaarCardNo,
@@ -110,10 +121,12 @@ public class ShopsController : ControllerBase
     }
 
     // PUT /api/shops/5 — update editable shop details (used by vendor Settings).
+    [RequiresActiveSubscription]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, UpdateShopDetailsRequest req)
     {
-        var shop = await _db.Shops.FindAsync(id);
+        var vendorId = await _me.GetVendorIdAsync();
+        var shop = await _db.Shops.FirstOrDefaultAsync(s => s.ShopId == id && s.VendorId == vendorId);
         if (shop is null) return NotFound(new { message = "Shop not found." });
 
         shop.Phone = req.Phone;
@@ -127,6 +140,11 @@ public class ShopsController : ControllerBase
     [HttpGet("vendor/{vendorId:int}")]
     public async Task<ActionResult<ShopDetailsResponse>> GetByVendor(int vendorId)
     {
+        // The id stays in the route because the client already builds URLs that
+        // way, but a vendor may only ask for their own shop.
+        if (vendorId != await _me.GetVendorIdAsync() && !await _me.IsAdminAsync())
+            return NotFound(new { message = "No shop for this vendor yet." });
+
         var shop = await _db.Shops
             .Include(s => s.QrCode)
             .FirstOrDefaultAsync(s => s.VendorId == vendorId);
@@ -143,10 +161,11 @@ public class ShopsController : ControllerBase
             shop.QrCode?.QrImagePath, shop.Status);
     }
 
-    // GET /api/shops/qrcode?vendorId=1 — used by the vendor QR Code page.
+    // GET /api/shops/qrcode — used by the vendor QR Code page.
     [HttpGet("qrcode")]
-    public async Task<IActionResult> GetQr([FromQuery] int vendorId)
+    public async Task<IActionResult> GetQr()
     {
+        var vendorId = await _me.GetVendorIdAsync();
         var shop = await _db.Shops
             .Include(s => s.QrCode)
             .FirstOrDefaultAsync(s => s.VendorId == vendorId);
@@ -165,6 +184,7 @@ public class ShopsController : ControllerBase
     // CURRENT PUBLIC_BASE_URL. The target URL is drawn inside the image, so
     // changing the domain (localhost -> yourdomain.com) leaves every existing QR
     // pointing at the old address until this runs.
+    [AdminOnly]
     [HttpPost("{id:int}/regenerate-qr")]
     public async Task<IActionResult> RegenerateQr(int id)
     {
@@ -190,6 +210,7 @@ public class ShopsController : ControllerBase
 
     // POST /api/shops/regenerate-all-qr — same, for every shop. Run this once
     // after deploying to a new domain.
+    [AdminOnly]
     [HttpPost("regenerate-all-qr")]
     public async Task<IActionResult> RegenerateAllQr()
     {

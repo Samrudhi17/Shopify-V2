@@ -1,10 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using QRShop.API.Filters;
 using QRShop.API.Services;
 
 namespace QRShop.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+// Anyone signed in may upload. Left open to unauthenticated callers this is an
+// anonymous file drop onto the server's disk.
+[Authorize]
 public class UploadsController : ControllerBase
 {
     private readonly IFileStorageService _storage;
@@ -13,6 +18,7 @@ public class UploadsController : ControllerBase
 
     // POST /api/uploads?folder=products  (multipart/form-data, field name: "file")
     // Returns { url } which the client then sends with the create request.
+    [RequiresActiveSubscription]
     [HttpPost]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<IActionResult> Upload([FromForm] IFormFile file, [FromQuery] string folder = "misc")

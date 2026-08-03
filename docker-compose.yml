@@ -32,6 +32,15 @@ services:
       Jwt__Key: ${JWT_KEY:?set JWT_KEY in .env}
       Jwt__Issuer: QRShop.API
       Jwt__Audience: QRShop.Client
+      # The API verifies the client's Firebase ID tokens against this project.
+      # The container has no .env of its own, so anything the API reads has to be
+      # listed here explicitly.
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-${VITE_FIREBASE_PROJECT_ID:?set VITE_FIREBASE_PROJECT_ID in .env}}
+      # Razorpay. Left empty the app still runs and the pricing page still loads;
+      # only starting a payment fails, with a message saying what is missing.
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
     volumes:
       # Uploaded images/certificates/QR codes must outlive the container.
       - uploads:/app/wwwroot/uploads

@@ -27,6 +27,7 @@ import ProductForm from "./pages/vendor/ProductForm";
 import Inventory from "./pages/vendor/Inventory";
 import QrCodePage from "./pages/vendor/QrCodePage";
 import Reports from "./pages/vendor/Reports";
+import Plans from "./pages/vendor/Plans";
 import Settings from "./pages/vendor/Settings";
 
 // Public customer catalog
@@ -79,6 +80,7 @@ export default function App() {
             <Route path="inventory" element={<Inventory />} />
             <Route path="qrcode" element={<QrCodePage />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="plans" element={<Plans />} />
             <Route path="settings" element={<Settings />} />
           </Route>
 

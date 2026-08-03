@@ -10,7 +10,7 @@ export default function Reports() {
 
   useEffect(() => {
     if (!user?.id) return;
-    api.get(`/vendor/reports?vendorId=${user.id}`).then((res) => setR(res.data)).catch(() => {});
+    api.get(`/vendor/reports`).then((res) => setR(res.data)).catch(() => {});
   }, [user]);
 
   if (!r) return <div><h1 style={{ fontSize: 28 }}>Reports</h1><p style={{ color: "var(--muted)" }}>Loading…</p></div>;
