@@ -70,9 +70,19 @@ public class AiDescriptionService : IAiDescriptionService
             },
             generationConfig = new
             {
-                // ~3 sentences. Also the ceiling on what one click can cost.
-                maxOutputTokens = 160,
+                // maxOutputTokens covers the model's THINKING as well as the text
+                // it returns. Flash reasons by default and will happily spend the
+                // whole allowance doing it: at 160 it burned 151 tokens thinking,
+                // emitted 5, and came back truncated mid-sentence.
+                //
+                // "minimal" thinking takes that to zero — this is a two-sentence
+                // description from seven given facts, with nothing to reason about
+                // — which makes the calls cheaper and faster as well as complete.
+                // The remaining headroom is deliberate: if a future model ignores
+                // the hint and thinks anyway, there is room to still finish.
+                maxOutputTokens = 400,
                 temperature = 0.7,
+                thinkingConfig = new { thinkingLevel = "minimal" },
             },
         };
 
@@ -106,19 +116,33 @@ public class AiDescriptionService : IAiDescriptionService
         }
 
         var candidate = candidates[0];
+        var finishReason = candidate.TryGetProperty("finishReason", out var fr) ? fr.GetString() : null;
 
         if (!candidate.TryGetProperty("content", out var content)
             || !content.TryGetProperty("parts", out var parts)
             || parts.GetArrayLength() == 0)
         {
-            var reason = candidate.TryGetProperty("finishReason", out var fr) ? fr.GetString() : "unknown";
-            throw new InvalidOperationException($"Gemini returned no text (finishReason: {reason}).");
+            throw new InvalidOperationException(
+                $"Gemini returned no text (finishReason: {finishReason ?? "unknown"}).");
         }
 
-        var text = parts[0].TryGetProperty("text", out var t) ? t.GetString() : null;
+        // Join every part rather than reading the first. A response is usually a
+        // single part, but the model may split one, and any part flagged
+        // `thought` is the model's reasoning — that must never reach the catalog.
+        var text = string.Concat(
+            parts.EnumerateArray()
+                .Where(p => !(p.TryGetProperty("thought", out var isThought) && isThought.GetBoolean()))
+                .Select(p => p.TryGetProperty("text", out var t) ? t.GetString() : null)
+                .Where(s => !string.IsNullOrEmpty(s)));
 
         if (string.IsNullOrWhiteSpace(text))
             throw new InvalidOperationException("Gemini returned an empty description.");
+
+        // Hitting the ceiling means the text stops mid-sentence. Better to fail
+        // and let the vendor retry than to quietly offer half a description for
+        // them to paste onto a public product page.
+        if (finishReason == "MAX_TOKENS")
+            throw new InvalidOperationException("Gemini hit the output limit and the description was cut short.");
 
         // Models like to wrap prose in quotes when told to reply with text only.
         return text.Trim().Trim('"').Trim();
