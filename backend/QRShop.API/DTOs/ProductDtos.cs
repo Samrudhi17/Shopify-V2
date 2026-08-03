@@ -1,5 +1,15 @@
 namespace QRShop.API.DTOs;
 
+// The product form's current contents, sent before the product is saved.
+public record GenerateDescriptionRequest(
+    string ProductName,
+    string? ProductType,
+    string? Brand,
+    string? Color,
+    string? Size,
+    decimal? BasePrice,
+    int? CategoryId);
+
 // Sent from the vendor Add Product form.
 public record CreateProductRequest(
     int VendorId,

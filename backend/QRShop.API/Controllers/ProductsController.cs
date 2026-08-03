@@ -17,11 +17,62 @@ public class ProductsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ICurrentUser _me;
+    private readonly IAiDescriptionService _ai;
+    private readonly ILogger<ProductsController> _log;
 
-    public ProductsController(AppDbContext db, ICurrentUser me)
+    public ProductsController(
+        AppDbContext db, ICurrentUser me, IAiDescriptionService ai, ILogger<ProductsController> log)
     {
         _db = db;
         _me = me;
+        _ai = ai;
+        _log = log;
+    }
+
+    // POST /api/products/generate-description — draft copy for the product form.
+    //
+    // The AI key lives here and never reaches the browser. Gated on an active
+    // subscription because every click costs money.
+    [RequiresActiveSubscription]
+    [HttpPost("generate-description")]
+    public async Task<IActionResult> GenerateDescription(
+        [FromBody] GenerateDescriptionRequest req, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.ProductName))
+            return BadRequest(new { message = "Enter a product name first." });
+
+        // The category is picked from a dropdown, so resolve the name for the
+        // prompt rather than trusting a name sent by the client.
+        string? categoryName = null;
+        if (req.CategoryId is > 0)
+        {
+            categoryName = await _db.Categories
+                .Where(c => c.CategoryId == req.CategoryId)
+                .Select(c => c.CategoryName)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        var facts = new ProductFacts(
+            req.ProductName.Trim(),
+            req.ProductType,
+            req.Brand,
+            req.Color,
+            req.Size,
+            req.BasePrice,
+            categoryName);
+
+        try
+        {
+            var description = await _ai.GenerateAsync(facts, ct);
+            return Ok(new { description });
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException)
+        {
+            // The provider's response can carry billing or key detail that has no
+            // business reaching a vendor's browser.
+            _log.LogError(ex, "AI description generation failed.");
+            return StatusCode(502, new { message = "Could not generate a description right now. Please try again." });
+        }
     }
 
     // The signed-in vendor's shop, or null if they have not created one yet.

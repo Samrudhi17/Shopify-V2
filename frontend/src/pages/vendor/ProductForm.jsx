@@ -29,10 +29,36 @@ export default function ProductForm() {
   const [imagesError, setImagesError] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [aiError, setAiError] = useState("");
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  // Ask the API to draft a description from whatever is filled in so far. The
+  // result lands in the textarea for the vendor to edit — it is a starting
+  // point, not something posted to the catalog unread.
+  async function generateDescription() {
+    setAiError("");
+    setGenerating(true);
+    try {
+      const { data } = await api.post("/products/generate-description", {
+        productName: form.productName,
+        productType: form.productType || null,
+        brand: form.brand || null,
+        color: form.color || null,
+        size: form.size || null,
+        basePrice: form.basePrice === "" ? null : Number(form.basePrice),
+        categoryId: form.categoryId === "" ? null : Number(form.categoryId),
+      });
+      setForm((prev) => ({ ...prev, description: data.description }));
+    } catch (err) {
+      setAiError(err?.response?.data?.message || "Could not generate a description.");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   // Release any remaining preview URLs when the page unmounts. This reads from a
   // ref rather than depending on `images`, because an [images] dependency would
@@ -171,8 +197,23 @@ export default function ProductForm() {
           </div>
 
           <label className="field">
-            <span>Description</span>
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <span>Description</span>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ padding: "4px 12px", fontSize: 13 }}
+                onClick={generateDescription}
+                // Needs a name to write about, and the AI call costs money per
+                // click, so don't let it fire on an empty form.
+                disabled={generating || !form.productName.trim()}
+                title={form.productName.trim() ? "Draft a description from the fields above" : "Enter a product name first"}
+              >
+                {generating ? "Generating…" : "✨ Generate"}
+              </button>
+            </span>
             <textarea className="input" rows={3} value={form.description} onChange={set("description")} />
+            {aiError && <span className="field-error">{aiError}</span>}
           </label>
 
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 14 }}>

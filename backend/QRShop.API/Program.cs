@@ -114,6 +114,10 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddHttpClient<IRazorpayService, RazorpayService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
+// AI product descriptions. One POST to an OpenAI-compatible endpoint — the key
+// stays server-side, so it is never exposed in the frontend bundle.
+builder.Services.AddHttpClient<IAiDescriptionService, AiDescriptionService>();
+
 // Behind a reverse proxy (nginx), trust X-Forwarded-* so generated file URLs
 // use the real public scheme/host instead of the container's internal address.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
