@@ -1,4 +1,5 @@
-// Admin dashboard: totals, vendor list, shop activate/deactivate.
+// Admin dashboard: totals + shop list (read-only).
+// Activating/deactivating a shop lives on the Shops page, not here.
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
@@ -6,12 +7,11 @@ import api from "../../services/api";
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState({ totalVendors: 0, totalShops: 0, activeShops: 0, inactiveShops: 0 });
-  const [vendors, setVendors] = useState([]);
+  const [shops, setShops] = useState([]);
 
   useEffect(() => {
-    // Endpoints to be implemented on the backend.
     api.get("/admin/stats").then((r) => setStats(r.data)).catch(() => {});
-    api.get("/admin/vendors").then((r) => setVendors(r.data)).catch(() => {});
+    api.get("/admin/shops").then((r) => setShops(r.data)).catch(() => {});
   }, []);
 
   return (
@@ -31,50 +31,54 @@ export default function AdminDashboard() {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "36px 0 16px" }}>
-        <h2 style={{ fontSize: 20 }}>Vendors</h2>
-        <span className="subtitle">{vendors.length} total</span>
+        <h2 style={{ fontSize: 20 }}>Shops</h2>
+        <span className="subtitle">{shops.length} total</span>
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Vendor</th><th>Email</th><th>Phone</th><th>Status</th><th style={{ textAlign: "right" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {vendors.map((v) => (
-              <tr key={v.vendorId}>
-                <td>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <Avatar name={v.name} />
-                    <div>
-                      <div style={{ fontWeight: 600, color: "var(--text-h)" }}>{v.name}</div>
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>#{v.vendorId}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>{v.email}</td>
-                <td>{v.phone}</td>
-                <td>
-                  <span className={"badge " + (v.status === "Active" ? "badge-green" : "badge-red")}>
-                    {v.status}
-                  </span>
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <button className="btn btn-outline" style={{ padding: "6px 12px", fontSize: 13 }}>View</button>
-                </td>
-              </tr>
-            ))}
-            {vendors.length === 0 && (
+        <div style={{ overflowX: "auto" }}>
+          <table className="table">
+            <thead>
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", color: "var(--muted)", padding: 40 }}>
-                  No vendors registered yet.
-                </td>
+                <th>Shop</th><th>Owner</th><th>Phone</th><th>Catalog</th><th>Status</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {shops.map((s) => (
+                <tr key={s.shopId}>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <Avatar name={s.shopName} />
+                      <div>
+                        <div style={{ fontWeight: 600, color: "var(--text-h)" }}>{s.shopName}</div>
+                        <div style={{ fontSize: 12, color: "var(--muted)" }}>#{s.shopId}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{s.vendorName}</td>
+                  <td>{s.phone}</td>
+                  <td>
+                    {s.catalogUrl
+                      ? <a href={s.catalogUrl} target="_blank" rel="noreferrer">/{s.slug}</a>
+                      : "—"}
+                  </td>
+                  <td>
+                    <span className={"badge " + (s.status === "Active" ? "badge-green" : "badge-red")}>
+                      {s.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {shops.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", color: "var(--muted)", padding: 40 }}>
+                    No shops registered yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

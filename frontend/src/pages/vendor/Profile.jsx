@@ -1,13 +1,15 @@
 // Shop registration / profile. If the vendor already has a shop, show all its
 // details + catalog URL + QR code. Otherwise show the registration form.
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../services/api";
 import { uploadFile } from "../../services/uploads";
 import { useAuth } from "../../context/AuthContext";
 import Anim from "../../components/Anim";
+import Field from "../../components/Field";
 import {
-  AADHAAR_FIELD, PAN_FIELD, PHONE_FIELD, SHOP_ACT_FIELD,
-  onlyDigits, asPan, asShopActNo,
+  AADHAAR_FIELD, ADDRESS_FIELD, PAN_FIELD, PHONE_FIELD, SHOP_ACT_FIELD, SHOP_NAME_FIELD,
+  FILE_RULES, MESSAGES, formatBytes, onlyDigits, asPan, asShopActNo,
+  validateField, validateFile, validateImageFile, validateForm,
 } from "../../constants/validation";
 
 const initial = {
@@ -20,20 +22,91 @@ const initial = {
   alternateNumber: "",
 };
 
+// Order matters: the first invalid field gets focus on a blocked submit.
+const FIELDS = [
+  "shopName", "aadhaarCardNo", "pancardNo", "shopActNo",
+  "address", "phone", "alternateNumber",
+];
+
 export default function Profile() {
   const { user } = useAuth();
   const [shop, setShop] = useState(null);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(initial);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [certificate, setCertificate] = useState(null);
+  const [certificateError, setCertificateError] = useState("");
   const [logo, setLogo] = useState(null);
+  const [logoError, setLogoError] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [justCreated, setJustCreated] = useState(false);
 
+  // Live shop-name availability: "idle" | "checking" | "available" | "taken".
+  const [nameStatus, setNameStatus] = useState("idle");
+  const nameCheckId = useRef(0);
+
   // `transform` normalizes as the user types (e.g. upper-case a PAN).
-  const set = (k, transform) => (e) =>
-    setForm({ ...form, [k]: transform ? transform(e.target.value) : e.target.value });
+  const set = (k, transform) => (e) => {
+    const value = transform ? transform(e.target.value) : e.target.value;
+    setForm((f) => ({ ...f, [k]: value }));
+    setErrors((prev) => ({ ...prev, [k]: validateField(k, value, { ...form, [k]: value }) }));
+    if (k === "shopName") setNameStatus("idle");
+  };
+
+  const blur = (k) => () => {
+    setTouched((t) => ({ ...t, [k]: true }));
+    setErrors((prev) => ({ ...prev, [k]: validateField(k, form[k], form) }));
+  };
+
+  const errorFor = (k) => {
+    if (!(touched[k] || form[k])) return "";
+    if (k === "shopName" && !errors.shopName && nameStatus === "taken") return MESSAGES.shopNameTaken;
+    return errors[k] || "";
+  };
+
+  // Ask the API whether the shop name is free, 500ms after typing stops.
+  // Each request carries a sequence number so a slow earlier reply cannot
+  // overwrite the result of a later one.
+  useEffect(() => {
+    const name = form.shopName.trim();
+    if (validateField("shopName", name)) { setNameStatus("idle"); return; }
+
+    const id = ++nameCheckId.current;
+    setNameStatus("checking");
+    const timer = setTimeout(() => {
+      api.get(`/shops/name-available?name=${encodeURIComponent(name)}`)
+        .then((r) => {
+          if (id !== nameCheckId.current) return;
+          setNameStatus(r.data.available ? "available" : "taken");
+        })
+        .catch(() => { if (id === nameCheckId.current) setNameStatus("idle"); });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [form.shopName]);
+
+  // Certificate is required; logo is optional but must be valid if chosen.
+  function pickCertificate(e) {
+    const file = e.target.files[0] || null;
+    setCertificate(file);
+    setCertificateError(file ? validateFile(file, FILE_RULES.certificate) : "");
+  }
+
+  async function pickLogo(e) {
+    const file = e.target.files[0] || null;
+    setLogo(file);
+    setLogoError(file ? await validateImageFile(file, FILE_RULES.logo) : "");
+  }
+
+  const formIsValid = useMemo(
+    () =>
+      Object.keys(validateForm(form, FIELDS)).length === 0 &&
+      nameStatus === "available" &&
+      Boolean(certificate) && !certificateError && !logoError,
+    [form, nameStatus, certificate, certificateError, logoError]
+  );
 
   // Load the vendor's existing shop (if any).
   useEffect(() => {
@@ -47,12 +120,26 @@ export default function Profile() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+
+    const found = validateForm(form, FIELDS);
+    if (Object.keys(found).length > 0) {
+      setErrors(found);
+      setTouched(Object.fromEntries(FIELDS.map((f) => [f, true])));
+      document.querySelector(`[name="${FIELDS.find((f) => found[f])}"]`)?.focus();
+      return;
+    }
+    if (!certificate) {
+      setCertificateError("Please attach your Shop Act certificate.");
+      return;
+    }
+    if (certificateError || logoError) return;
+
     setSubmitting(true);
     try {
       const shopActCertificateUrl = certificate ? await uploadFile(certificate, "certificates") : null;
       const logoUrl = logo ? await uploadFile(logo, "logos") : null;
 
-      const { data } = await api.post("/shops", {
+      await api.post("/shops", {
         ...form,
         vendorId: user?.id,
         shopActCertificateUrl,
@@ -63,7 +150,15 @@ export default function Profile() {
       setShop(details.data);
       setJustCreated(true);
     } catch (err) {
-      setError(err?.response?.data?.message || err.message);
+      const message = err?.response?.data?.message || err.message;
+      // Another vendor can claim the name between the live check and this
+      // submit, so surface the server's verdict on the field itself.
+      if (err?.response?.status === 409 && /shop name/i.test(message || "")) {
+        setNameStatus("taken");
+        setTouched((t) => ({ ...t, shopName: true }));
+        document.querySelector('[name="shopName"]')?.focus();
+      }
+      setError(message);
     } finally {
       setSubmitting(false);
     }
@@ -145,42 +240,79 @@ export default function Profile() {
       </p>
 
       <div className="card">
-        <form onSubmit={handleSubmit}>
-          <F label="Shop Name * (must be unique)" value={form.shopName} onChange={set("shopName")} required minLength={2} maxLength={150} />
+        <form onSubmit={handleSubmit} noValidate>
+          <Field
+            label="Shop Name * (must be unique)" name="shopName" value={form.shopName}
+            onChange={set("shopName")} onBlur={blur("shopName")}
+            error={errorFor("shopName")}
+            hint={
+              nameStatus === "checking" ? "Checking availability…"
+                : nameStatus === "available" ? "✓ Available" : null
+            }
+            {...SHOP_NAME_FIELD}
+          />
+
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <F label="Aadhaar Card *" value={form.aadhaarCardNo} onChange={set("aadhaarCardNo", onlyDigits)} required {...AADHAAR_FIELD} />
-            <F label="PAN Card *" value={form.pancardNo} onChange={set("pancardNo", asPan)} required {...PAN_FIELD} />
+            <Field
+              label="Aadhaar Card *" name="aadhaarCardNo" value={form.aadhaarCardNo}
+              onChange={set("aadhaarCardNo", onlyDigits)} onBlur={blur("aadhaarCardNo")}
+              error={errorFor("aadhaarCardNo")} {...AADHAAR_FIELD}
+            />
+            <Field
+              label="PAN Card *" name="pancardNo" value={form.pancardNo}
+              onChange={set("pancardNo", asPan)} onBlur={blur("pancardNo")}
+              error={errorFor("pancardNo")} {...PAN_FIELD}
+            />
           </div>
-          <F label="Shop Act No *" value={form.shopActNo} onChange={set("shopActNo", asShopActNo)} required {...SHOP_ACT_FIELD} />
-          <label className="field">
-            <span>Shop Act Certificate * (PDF / Image)</span>
-            <input className="input" type="file" accept=".pdf,image/*" onChange={(e) => setCertificate(e.target.files[0])} required />
-          </label>
-          <F label="Address *" value={form.address} onChange={set("address")} required minLength={5} maxLength={255} />
+
+          <Field
+            label="Shop Act No *" name="shopActNo" value={form.shopActNo}
+            onChange={set("shopActNo", asShopActNo)} onBlur={blur("shopActNo")}
+            error={errorFor("shopActNo")} {...SHOP_ACT_FIELD}
+          />
+
+          <Field
+            label={`Shop Act Certificate * (PDF or image, max ${formatBytes(FILE_RULES.certificate.maxBytes)})`}
+            type="file" accept={FILE_RULES.certificate.accept}
+            onChange={pickCertificate}
+            error={certificateError}
+            hint={certificate && !certificateError ? `${certificate.name} · ${formatBytes(certificate.size)}` : null}
+          />
+
+          <Field
+            label="Address *" name="address" value={form.address}
+            onChange={set("address")} onBlur={blur("address")}
+            error={errorFor("address")} {...ADDRESS_FIELD}
+          />
+
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <F label="Phone *" value={form.phone} onChange={set("phone", onlyDigits)} required {...PHONE_FIELD} />
-            <F label="Alternate Number" value={form.alternateNumber} onChange={set("alternateNumber", onlyDigits)} {...PHONE_FIELD} />
+            <Field
+              label="Phone *" name="phone" value={form.phone}
+              onChange={set("phone", onlyDigits)} onBlur={blur("phone")}
+              error={errorFor("phone")} {...PHONE_FIELD}
+            />
+            <Field
+              label="Alternate Number" name="alternateNumber" value={form.alternateNumber}
+              onChange={set("alternateNumber", onlyDigits)} onBlur={blur("alternateNumber")}
+              error={errorFor("alternateNumber")} {...PHONE_FIELD}
+            />
           </div>
-          <label className="field">
-            <span>Logo</span>
-            <input className="input" type="file" accept="image/*" onChange={(e) => setLogo(e.target.files[0])} />
-          </label>
+
+          <Field
+            label={`Logo (image, max ${formatBytes(FILE_RULES.logo.maxBytes)}, ${FILE_RULES.logo.minDimension}–${FILE_RULES.logo.maxDimension}px)`}
+            type="file" accept={FILE_RULES.logo.accept}
+            onChange={pickLogo}
+            error={logoError}
+            hint={logo && !logoError ? `${logo.name} · ${formatBytes(logo.size)}` : null}
+          />
+
           {error && <div className="alert alert-error">{error}</div>}
-          <button type="submit" className="btn btn-primary" disabled={submitting}>
+          <button type="submit" className="btn btn-primary" disabled={submitting || !formIsValid}>
             {submitting ? "Creating…" : "Create Shop"}
           </button>
         </form>
       </div>
     </div>
-  );
-}
-
-function F({ label, ...props }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input className="input" {...props} />
-    </label>
   );
 }
 

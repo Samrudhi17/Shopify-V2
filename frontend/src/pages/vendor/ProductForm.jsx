@@ -1,17 +1,21 @@
 // Add / Edit Product. Fields: name, category, product type, description, brand,
 // color (searchable), size, base price, quantity (required), images.
 // Persists to Products + Product_Variants + Product_Images + Inventory.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { uploadMany } from "../../services/uploads";
 import { useAuth } from "../../context/AuthContext";
 import { COLORS } from "../../constants/colors";
+import { FILE_RULES, formatBytes, validateFile } from "../../constants/validation";
 
 const initial = {
   productName: "", productType: "", description: "", brand: "",
   color: "", size: "", basePrice: "", quantity: "", categoryId: "",
 };
+
+// Enough for a few angles of one garment without bloating the catalog page.
+const MAX_IMAGES = 6;
 
 export default function ProductForm() {
   const { user } = useAuth();
@@ -19,12 +23,72 @@ export default function ProductForm() {
   const isEdit = Boolean(id);
   const [form, setForm] = useState(initial);
   const [categories, setCategories] = useState([]);
+  // Each entry is { file, url } — url is an object URL used for the thumbnail
+  // and revoked when the image is removed, so the blobs don't leak.
   const [images, setImages] = useState([]);
+  const [imagesError, setImagesError] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  // Release any remaining preview URLs when the page unmounts. This reads from a
+  // ref rather than depending on `images`, because an [images] dependency would
+  // re-run the cleanup on every add and revoke URLs that are still on screen.
+  const imagesRef = useRef(images);
+  imagesRef.current = images;
+  useEffect(() => () => { imagesRef.current.forEach((i) => URL.revokeObjectURL(i.url)); }, []);
+
+  // Files are ADDED to the existing selection rather than replacing it, so the
+  // vendor can pick a few, then pick a few more. Duplicates (same name + size)
+  // and anything past the cap are skipped, with a message saying why.
+  function addImages(e) {
+    const picked = [...e.target.files];
+    // Let the same file be chosen again later if it gets removed first.
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (picked.length === 0) return;
+
+    const problems = [];
+    const accepted = [];
+
+    for (const file of picked) {
+      const msg = validateFile(file, FILE_RULES.product);
+      if (msg) { problems.push(`${file.name}: ${msg}`); continue; }
+
+      const isDuplicate = [...images, ...accepted]
+        .some((i) => i.file.name === file.name && i.file.size === file.size);
+      if (isDuplicate) { problems.push(`${file.name} is already added.`); continue; }
+
+      if (images.length + accepted.length >= MAX_IMAGES) {
+        problems.push(`You can upload up to ${MAX_IMAGES} images.`);
+        break;
+      }
+      accepted.push({ file, url: URL.createObjectURL(file) });
+    }
+
+    if (accepted.length) setImages((prev) => [...prev, ...accepted]);
+    setImagesError(problems[0] || "");
+  }
+
+  function removeImage(index) {
+    setImages((prev) => {
+      URL.revokeObjectURL(prev[index].url);
+      return prev.filter((_, i) => i !== index);
+    });
+    setImagesError("");
+  }
+
+  // The first image is the one shown on cards and the catalog, so "make cover"
+  // just moves that image to the front.
+  function makeCover(index) {
+    setImages((prev) => {
+      const next = [...prev];
+      const [picked] = next.splice(index, 1);
+      return [picked, ...next];
+    });
+  }
 
   useEffect(() => {
     if (!user?.id) return;
@@ -53,9 +117,14 @@ export default function ProductForm() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    if (imagesError) return;
     setSubmitting(true);
     try {
-      const imageUrls = images.length ? await uploadMany(images, "products") : undefined;
+      // Upload in the order shown, so the first thumbnail becomes the cover
+      // image (the API marks index 0 as primary).
+      const imageUrls = images.length
+        ? await uploadMany(images.map((i) => i.file), "products")
+        : undefined;
       const payload = {
         categoryId: form.categoryId ? Number(form.categoryId) : null,
         productName: form.productName,
@@ -129,14 +198,54 @@ export default function ProductForm() {
             <F label="Quantity *" type="number" min="0" value={form.quantity} onChange={set("quantity")} required />
           </div>
 
-          <label className="field">
-            <span>Product Images {isEdit && "(upload to replace)"}</span>
-            <input className="input" type="file" accept="image/*" multiple onChange={(e) => setImages([...e.target.files])} />
-          </label>
+          <div className="field">
+            <span>
+              Product Images {isEdit && "(uploading replaces the current set)"}
+              {` — up to ${MAX_IMAGES}, max ${formatBytes(FILE_RULES.product.maxBytes)} each`}
+            </span>
+
+            {images.length > 0 && (
+              <div className="thumb-grid">
+                {images.map((img, i) => (
+                  <figure className={"thumb" + (i === 0 ? " is-cover" : "")} key={img.url}>
+                    <img src={img.url} alt={img.file.name} />
+                    <button
+                      type="button" className="thumb-remove"
+                      onClick={() => removeImage(i)}
+                      aria-label={`Remove ${img.file.name}`} title="Remove"
+                    >×</button>
+                    {i === 0
+                      ? <figcaption className="thumb-badge">Cover</figcaption>
+                      : (
+                        <button type="button" className="thumb-cover-btn" onClick={() => makeCover(i)}>
+                          Make cover
+                        </button>
+                      )}
+                  </figure>
+                ))}
+              </div>
+            )}
+
+            {images.length < MAX_IMAGES && (
+              <input
+                ref={fileInputRef}
+                className={"input" + (imagesError ? " is-invalid" : "")}
+                type="file" accept={FILE_RULES.product.accept} multiple onChange={addImages}
+              />
+            )}
+
+            {imagesError
+              ? <div className="field-error"><span aria-hidden="true">⚠</span><span>{imagesError}</span></div>
+              : images.length > 0
+                ? <div className="field-hint">
+                    {images.length} of {MAX_IMAGES} added · the first image is the cover shown on your catalog
+                  </div>
+                : <div className="field-hint">Add photos one by one or several at a time.</div>}
+          </div>
 
           {error && <div className="alert alert-error">{error}</div>}
           <div style={{ display: "flex", gap: 10 }}>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
+            <button type="submit" className="btn btn-primary" disabled={submitting || Boolean(imagesError)}>
               {submitting ? "Saving…" : isEdit ? "Update Product" : "Save Product"}
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => navigate("/vendor/products")}>Cancel</button>

@@ -40,4 +40,6 @@ public record ProductResponse(
     string? Size,
     int StockQty,
     string? PrimaryImageUrl,
+    // Every image, primary first — the card carousel scrolls through these.
+    List<string> ImageUrls,
     string Status);

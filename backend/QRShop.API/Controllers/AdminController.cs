@@ -64,16 +64,9 @@ public class AdminController : ControllerBase
         return Ok(new { shop.ShopId, shop.Status });
     }
 
-    // PUT /api/admin/vendors/5/status — activate/deactivate a vendor.
-    [HttpPut("vendors/{id:int}/status")]
-    public async Task<IActionResult> SetVendorStatus(int id, [FromBody] AdminStatusRequest body)
-    {
-        var vendor = await _db.Vendors.FindAsync(id);
-        if (vendor is null) return NotFound(new { message = "Vendor not found." });
-        vendor.Status = body.Status;
-        await _db.SaveChangesAsync();
-        return Ok(new { vendor.VendorId, vendor.Status });
-    }
+    // Vendors are deliberately not deactivable: an admin controls access by
+    // activating/deactivating the vendor's SHOP (above), which is what hides the
+    // public catalog. There is intentionally no vendors/{id}/status endpoint.
 
     // GET /api/admin/admins — for the roles & permissions settings page.
     [HttpGet("admins")]

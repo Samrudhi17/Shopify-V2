@@ -273,6 +273,106 @@ a:hover { text-decoration: underline; }
 .input:focus { outline: none; border-color: var(--brand); background: #fff; box-shadow: 0 0 0 4px var(--ring); }
 .input::placeholder { color: #aab2c0; }
 
+/* Per-field validation: red border + message directly under the input. */
+.input.is-invalid { border-color: #ef4444; background: #fef6f6; }
+.input.is-invalid:focus { border-color: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15); }
+.field-error {
+  display: flex; align-items: flex-start; gap: 5px;
+  margin-top: 6px; font-size: 12.5px; font-weight: 500; color: #dc2626; line-height: 1.4;
+}
+/* Neutral note under a field (e.g. "Checking availability…", "✓ Available"). */
+.field-hint { margin-top: 6px; font-size: 12.5px; font-weight: 500; color: var(--muted); line-height: 1.4; }
+.field-hint.is-ok { color: #15803d; }
+
+/* Product card image carousel. Swiping is native horizontal scroll with
+   scroll-snap; arrows and dots are progressive enhancement for mouse users. */
+.carousel { position: relative; width: 100%; background: #f1f5f9; overflow: hidden; }
+.carousel-track {
+  display: flex; width: 100%; height: 100%;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.carousel-track::-webkit-scrollbar { display: none; }
+.carousel-slide { flex: 0 0 100%; width: 100%; height: 100%; scroll-snap-align: center; }
+.carousel-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.carousel-empty {
+  width: 100%; height: 100%; display: grid; place-items: center;
+  color: #94a3b8; font-size: 14px;
+}
+
+.carousel-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 30px; height: 30px; border: none; border-radius: 50%; cursor: pointer;
+  background: rgba(255, 255, 255, 0.92); color: #0f172a;
+  font-size: 20px; line-height: 1; padding: 0 0 3px;
+  box-shadow: var(--shadow-sm); opacity: 0; transition: opacity 0.15s;
+}
+.carousel:hover .carousel-arrow { opacity: 1; }
+.carousel-arrow:disabled { opacity: 0 !important; pointer-events: none; }
+.carousel-arrow:focus-visible { opacity: 1; outline: 2px solid var(--brand); }
+.carousel-prev { left: 8px; }
+.carousel-next { right: 8px; }
+
+.carousel-dots {
+  position: absolute; bottom: 8px; left: 0; right: 0;
+  display: flex; justify-content: center; gap: 5px; pointer-events: none;
+}
+.carousel-dot {
+  width: 6px; height: 6px; border-radius: 50%; border: none; padding: 0; cursor: pointer;
+  background: rgba(255, 255, 255, 0.6); box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+  pointer-events: auto; transition: width 0.15s, background 0.15s;
+}
+.carousel-dot.is-active { width: 16px; border-radius: 3px; background: #fff; }
+
+.carousel-count {
+  position: absolute; top: 8px; right: 8px; padding: 2px 7px; border-radius: 20px;
+  background: rgba(15, 23, 42, 0.6); color: #fff; font-size: 11px; font-weight: 600;
+}
+
+/* Touch devices have no hover, so keep the arrows out of the way entirely. */
+@media (hover: none) {
+  .carousel-arrow { display: none; }
+}
+
+/* Multi-image picker: thumbnails of the files queued for upload. */
+.thumb-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px; margin-bottom: 12px;
+}
+.thumb {
+  position: relative; margin: 0; border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--border); background: #f8fafc; aspect-ratio: 1;
+}
+.thumb.is-cover { border: 2px solid var(--brand); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb-remove {
+  position: absolute; top: 4px; right: 4px; width: 22px; height: 22px;
+  border: none; border-radius: 50%; cursor: pointer; padding: 0;
+  background: rgba(15, 23, 42, 0.72); color: #fff; font-size: 15px; line-height: 1;
+}
+.thumb-remove:hover { background: #dc2626; }
+.thumb-badge, .thumb-cover-btn {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 0;
+  font-size: 11px; font-weight: 700; text-align: center; border: none;
+}
+.thumb-badge { background: var(--brand); color: #fff; }
+.thumb-cover-btn {
+  background: rgba(15, 23, 42, 0.72); color: #fff; cursor: pointer; opacity: 0; transition: opacity 0.15s;
+}
+.thumb:hover .thumb-cover-btn, .thumb-cover-btn:focus-visible { opacity: 1; }
+
+/* Wrapper so the show/hide button can sit inside the password input. */
+.input-wrap { position: relative; }
+.input-wrap .input { padding-right: 44px; }
+.input-toggle {
+  position: absolute; top: 0; right: 0; height: 100%; width: 42px;
+  display: grid; place-items: center; cursor: pointer;
+  background: none; border: none; padding: 0; color: var(--muted); font-size: 16px; line-height: 1;
+}
+.input-toggle:hover { color: var(--text-h); }
+.input-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 8px; }
+
 .alert { padding: 10px 12px; border-radius: 10px; font-size: 14px; margin-bottom: 14px; }
 .alert-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
 .alert-success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }

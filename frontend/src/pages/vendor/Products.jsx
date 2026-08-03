@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import Anim from "../../components/Anim";
+import ImageCarousel from "../../components/ImageCarousel";
 
 const ALL = "All";
 
@@ -112,11 +113,11 @@ export default function Products() {
             <div className="grid grid-3">
               {items.map((p) => (
                 <div className="card" key={p.productId} style={{ padding: 0, overflow: "hidden" }}>
-                  {p.primaryImageUrl ? (
-                    <img src={p.primaryImageUrl} alt={p.productName} style={{ width: "100%", height: 160, objectFit: "cover" }} />
-                  ) : (
-                    <div style={{ height: 160, background: "#f1f5f9", display: "grid", placeItems: "center", color: "#94a3b8" }}>No image</div>
-                  )}
+                  <ImageCarousel
+                    images={p.imageUrls?.length ? p.imageUrls : (p.primaryImageUrl ? [p.primaryImageUrl] : [])}
+                    alt={p.productName}
+                    aspect="16 / 10"
+                  />
                   <div style={{ padding: 16 }}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                       {p.categoryName && <span className="badge badge-green">{p.categoryName}</span>}

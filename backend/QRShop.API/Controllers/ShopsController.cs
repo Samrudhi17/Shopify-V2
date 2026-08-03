@@ -23,6 +23,20 @@ public class ShopsController : ControllerBase
         _config = config;
     }
 
+    // GET /api/shops/name-available?name=Gokul — live check for the registration
+    // form. Advisory only: Create re-checks, because another vendor can claim the
+    // name between this call and the submit.
+    [HttpGet("name-available")]
+    public async Task<IActionResult> NameAvailable([FromQuery] string name)
+    {
+        var trimmed = (name ?? "").Trim();
+        if (trimmed.Length < 2)
+            return Ok(new { available = false, reason = "Shop name must be at least 2 characters." });
+
+        var taken = await _db.Shops.AnyAsync(s => s.ShopName == trimmed);
+        return Ok(new { available = !taken, reason = taken ? "That shop name is already taken." : null });
+    }
+
     // POST /api/shops — register a shop, generate catalog URL + QR code.
     [HttpPost]
     public async Task<ActionResult<ShopResponse>> Create(CreateShopRequest req)
@@ -37,11 +51,16 @@ public class ShopsController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.ShopName))
             return BadRequest(new { message = "Shop name is required." });
 
-        if (await _db.Shops.AnyAsync(s => s.ShopName == req.ShopName))
-            return Conflict(new { message = "Shop name is already taken." });
+        // Trim before comparing and storing so "Gokul " can't claim a second
+        // listing next to "Gokul". The column collation is case-insensitive, so
+        // this also blocks "gokul".
+        var shopName = req.ShopName.Trim();
+
+        if (await _db.Shops.AnyAsync(s => s.ShopName == shopName))
+            return Conflict(new { message = "That shop name is already taken." });
 
         // Build a URL-safe unique slug.
-        var baseSlug = SlugHelper.Slugify(req.ShopName);
+        var baseSlug = SlugHelper.Slugify(shopName);
         if (string.IsNullOrEmpty(baseSlug)) baseSlug = "shop";
         var slug = baseSlug;
         var n = 1;
@@ -54,11 +73,12 @@ public class ShopsController : ControllerBase
         var shop = new Shop
         {
             VendorId = req.VendorId,
-            ShopName = req.ShopName,
+            ShopName = shopName,
             ShopType = "Cloth",
             AadhaarCardNo = req.AadhaarCardNo,
             PancardNo = req.PancardNo,
-            ShopActNo = req.ShopActNo,
+            // Licence numbers are printed upper case; store one canonical form.
+            ShopActNo = req.ShopActNo?.Trim().ToUpperInvariant(),
             ShopActCertificateUrl = req.ShopActCertificateUrl,
             Address = req.Address,
             Phone = req.Phone,

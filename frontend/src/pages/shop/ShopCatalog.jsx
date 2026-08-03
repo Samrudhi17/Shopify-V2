@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../../services/api";
 import Anim from "../../components/Anim";
+import ImageCarousel from "../../components/ImageCarousel";
 
 const ALL = "All";
 
@@ -86,12 +87,12 @@ export default function ShopCatalog() {
           <div className="catalog-grid">
             {filtered.map((p) => (
               <div className="card catalog-card" key={p.productId}>
-                <div className="catalog-img">
-                  {p.imageUrl
-                    ? <img src={p.imageUrl} alt={p.productName} />
-                    : <div className="catalog-noimg">No image</div>}
-                  {p.availableQty <= 0 && <span className="catalog-oos">Out of stock</span>}
-                </div>
+                <ImageCarousel
+                  images={p.imageUrls?.length ? p.imageUrls : (p.imageUrl ? [p.imageUrl] : [])}
+                  alt={p.productName}
+                  aspect="4 / 3"
+                  overlay={p.availableQty <= 0 ? <span className="catalog-oos">Out of stock</span> : null}
+                />
                 <div className="catalog-card-body">
                   <div className="catalog-badges">
                     {p.categoryName && <span className="badge badge-green">{p.categoryName}</span>}

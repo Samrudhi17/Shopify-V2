@@ -16,8 +16,10 @@ export default function Home() {
           <span className="brand-mark">▦</span> QR Digital Shop
         </div>
         <div className="nav-links">
+          
           <a href="#services">Services</a>
           <a href="#about">About</a>
+          <Link to="/shops">Shops</Link>
           <a href="#contact">Contact</a>
           <Link to="/login" className="btn btn-ghost">Login</Link>
           <Link to="/register" className="btn btn-primary">Register</Link>

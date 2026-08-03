@@ -15,10 +15,28 @@ public class FileStorageService : IFileStorageService
     private readonly IWebHostEnvironment _env;
     private readonly IHttpContextAccessor _http;
 
-    private static readonly string[] AllowedExtensions =
-        { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf" };
+    // Per-folder upload limits, mirrored by FILE_RULES in the client's
+    // constants/validation.js. A certificate may be a scan or a PDF; a logo is
+    // an image only and is kept small because it renders in a 56px card.
+    private sealed record UploadRule(string Label, string[] Extensions, long MaxBytes);
 
-    private const long MaxBytes = 10 * 1024 * 1024; // 10 MB
+    private static readonly Dictionary<string, UploadRule> Rules = new()
+    {
+        ["certificates"] = new("Shop Act certificate",
+            new[] { ".pdf", ".jpg", ".jpeg", ".png", ".webp" }, 3 * 1024 * 1024),
+        ["logos"] = new("Logo",
+            new[] { ".jpg", ".jpeg", ".png", ".webp" }, 500 * 1024),
+        ["products"] = new("Product image",
+            new[] { ".jpg", ".jpeg", ".png", ".webp" }, 500 * 1024),
+        ["qrcodes"] = new("QR code",
+            new[] { ".png" }, 2 * 1024 * 1024),
+    };
+
+    private static readonly UploadRule DefaultRule = new("File",
+        new[] { ".jpg", ".jpeg", ".png", ".webp", ".pdf" }, 500 * 1024);
+
+    private static string Describe(long bytes) =>
+        bytes >= 1024 * 1024 ? $"{bytes / (1024 * 1024)} MB" : $"{bytes / 1024} KB";
 
     public FileStorageService(IWebHostEnvironment env, IHttpContextAccessor http)
     {
@@ -28,14 +46,19 @@ public class FileStorageService : IFileStorageService
 
     public async Task<string> SaveAsync(IFormFile file, string subfolder)
     {
+        var rule = Rules.TryGetValue(subfolder, out var r) ? r : DefaultRule;
+
         if (file is null || file.Length == 0)
-            throw new ArgumentException("Empty file.");
-        if (file.Length > MaxBytes)
-            throw new ArgumentException("File exceeds the 10 MB limit.");
+            throw new ArgumentException($"{rule.Label} is empty.");
+
+        if (file.Length > rule.MaxBytes)
+            throw new ArgumentException(
+                $"{rule.Label} must be {Describe(rule.MaxBytes)} or smaller — this file is {Describe(file.Length)}.");
 
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!AllowedExtensions.Contains(ext))
-            throw new ArgumentException($"File type '{ext}' is not allowed.");
+        if (!rule.Extensions.Contains(ext))
+            throw new ArgumentException(
+                $"{rule.Label} must be a {string.Join(", ", rule.Extensions.Select(e => e.TrimStart('.')))} file.");
 
         // wwwroot may not exist by default on a Web API project.
         var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");

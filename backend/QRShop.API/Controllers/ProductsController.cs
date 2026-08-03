@@ -210,5 +210,8 @@ public class ProductsController : ControllerBase
         p.Variants.Select(v => v.Size).FirstOrDefault(),
         p.Variants.Select(v => v.Inventory != null ? v.Inventory.StockQty : 0).FirstOrDefault(),
         p.Images.Where(i => i.IsPrimary).Select(i => i.ImageUrl).FirstOrDefault(),
+        // Primary first, then the rest in upload order.
+        p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.ImageId)
+            .Select(i => i.ImageUrl).ToList(),
         p.Status);
 }
