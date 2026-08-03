@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import Field from "../../components/Field";
 import { PHONE_FIELD, onlyDigits } from "../../constants/validation";
 import usePageTitle from "../../hooks/usePageTitle";
 
@@ -54,10 +55,17 @@ export default function Settings() {
         <div className="card">
           <h3 style={{ marginBottom: 14 }}>Contact details (shown on your catalog)</h3>
           <form onSubmit={save}>
-            <label className="field"><span>Phone *</span>
-              <input className="input" value={form.phone} onChange={set("phone", onlyDigits)} required {...PHONE_FIELD} /></label>
-            <label className="field"><span>Alternate Number</span>
-              <input className="input" value={form.alternateNumber} onChange={set("alternateNumber", onlyDigits)} {...PHONE_FIELD} /></label>
+            {/* Field rather than a bare input, so these get the same +91 prefix
+                as the rest of the app. Spreading PHONE_FIELD onto an <input>
+                would put `prefix` on the DOM node as an unknown attribute. */}
+            <Field
+              label="Phone *" value={form.phone}
+              onChange={set("phone", onlyDigits)} required {...PHONE_FIELD}
+            />
+            <Field
+              label="Alternate Number" value={form.alternateNumber}
+              onChange={set("alternateNumber", onlyDigits)} {...PHONE_FIELD}
+            />
             <label className="field"><span>Address *</span>
               <input className="input" value={form.address} onChange={set("address")} required minLength={5} maxLength={255} /></label>
             {saved && <div className="alert alert-success">Saved.</div>}

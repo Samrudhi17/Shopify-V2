@@ -3,11 +3,11 @@
 // show/hide button; `hint` shows a neutral note (e.g. "Checking availability…")
 // when the field has no error.
 export default function Field({
-  label, type = "text", error, hint, reveal, onToggleReveal, ...props
+  label, type = "text", error, hint, reveal, onToggleReveal, prefix, ...props
 }) {
   const input = (
     <input
-      className={"input" + (error ? " is-invalid" : "")}
+      className={"input" + (error ? " is-invalid" : "") + (prefix ? " has-prefix" : "")}
       type={type}
       aria-invalid={Boolean(error)}
       {...props}
@@ -17,7 +17,15 @@ export default function Field({
   return (
     <label className="field">
       <span>{label}</span>
-      {onToggleReveal ? (
+      {prefix ? (
+        // The prefix is decoration, not data — the field still holds and submits
+        // the bare 10 digits, so nothing downstream has to strip it back off.
+        // aria-hidden because the label already says what the number is.
+        <div className="input-wrap">
+          <span className="input-prefix" aria-hidden="true">{prefix}</span>
+          {input}
+        </div>
+      ) : onToggleReveal ? (
         <div className="input-wrap">
           {input}
           <button

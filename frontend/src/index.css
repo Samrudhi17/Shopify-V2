@@ -365,6 +365,20 @@ a:hover { text-decoration: underline; }
 /* Wrapper so the show/hide button can sit inside the password input. */
 .input-wrap { position: relative; }
 .input-wrap .input { padding-right: 44px; }
+
+/* Static country code sitting inside the phone field. Purely visual — the
+   input still contains only the 10 digits. */
+.input-prefix {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  pointer-events: none;
+}
+.input-wrap .input.has-prefix { padding-left: 46px; padding-right: 14px; }
 .input-toggle {
   position: absolute; top: 0; right: 0; height: 100%; width: 42px;
   display: grid; place-items: center; cursor: pointer;

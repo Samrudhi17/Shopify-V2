@@ -234,12 +234,17 @@ export const PAN_FIELD = {
   placeholder: "ABCDE1234F",
 };
 
+// Indian mobile numbers only: the pattern already enforces 10 digits starting
+// 6-9, so the +91 is shown as a fixed prefix rather than something to type. It
+// is display only — the value stays the bare 10 digits, which is what the API
+// validates and the database stores.
 export const PHONE_FIELD = {
   pattern: PATTERNS.phone,
   title: MESSAGES.phone,
   inputMode: "tel",
   maxLength: 10,
-  placeholder: "10-digit number",
+  placeholder: "98765 43210",
+  prefix: "+91",
 };
 
 export const EMAIL_FIELD = {
