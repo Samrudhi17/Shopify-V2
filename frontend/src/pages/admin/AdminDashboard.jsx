@@ -1,19 +1,24 @@
 // Admin dashboard: totals + shop list (read-only).
 // Activating/deactivating a shop lives on the Shops page, not here.
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
 import usePageTitle from "../../hooks/usePageTitle";
+import { money, formatDate } from "./subscriptionFormat";
+import { SubStatus } from "./subscriptionUi";
 
 export default function AdminDashboard() {
   usePageTitle("Admin Dashboard");
   const { user } = useAuth();
   const [stats, setStats] = useState({ totalVendors: 0, totalShops: 0, activeShops: 0, inactiveShops: 0 });
   const [shops, setShops] = useState([]);
+  const [subs, setSubs] = useState([]);
 
   useEffect(() => {
     api.get("/admin/stats").then((r) => setStats(r.data)).catch(() => {});
     api.get("/admin/shops").then((r) => setShops(r.data)).catch(() => {});
+    api.get("/admin/subscriptions").then((r) => setSubs(r.data)).catch(() => {});
   }, []);
 
   return (
@@ -30,6 +35,56 @@ export default function AdminDashboard() {
         <Stat ico="🏬" tone="blue" label="Total Shops" value={stats.totalShops} />
         <Stat ico="✅" tone="green" label="Active Shops" value={stats.activeShops} />
         <Stat ico="🚫" tone="red" label="Inactive Shops" value={stats.inactiveShops} />
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "36px 0 16px" }}>
+        <h2 style={{ fontSize: 20 }}>Subscriptions</h2>
+        <Link to="/admin/subscriptions" className="subtitle">View all →</Link>
+      </div>
+
+      <div className="grid grid-4">
+        <Stat ico="💳" tone="green" label="Paying Vendors" value={stats.payingVendors} />
+        <Stat ico="🎁" tone="violet" label="On Free Trial" value={stats.trialVendors} />
+        <Stat ico="⏳" tone="blue" label="Expiring in 7 days" value={stats.expiringSoon} />
+        <Stat ico="⚠️" tone="red" label="Lapsed" value={stats.expiredVendors} />
+      </div>
+
+      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 20 }}>
+        <Stat ico="₹" tone="green" label="Total Revenue" value={money(stats.revenue)} />
+        <Stat ico="📈" tone="blue" label="Revenue This Month" value={money(stats.revenueThisMonth)} />
+      </div>
+
+      {/* Most recent terms, so a purchase shows up here the moment it settles. */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "36px 0 16px" }}>
+        <h2 style={{ fontSize: 20 }}>Recent subscriptions</h2>
+        <span className="subtitle">{stats.paymentsCount || 0} payment{stats.paymentsCount === 1 ? "" : "s"}</span>
+      </div>
+
+      <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 8 }}>
+        <div style={{ overflowX: "auto" }}>
+          <table className="table">
+            <thead>
+              <tr><th>Vendor</th><th>Shop</th><th>Plan</th><th>Amount</th><th>Ends</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {subs.slice(0, 5).map((s) => (
+                <tr key={s.subscriptionId}>
+                  <td style={{ fontWeight: 600, color: "var(--text-h)" }}>{s.vendorName}</td>
+                  <td>{s.shopName || "—"}</td>
+                  <td>{s.planName}</td>
+                  <td>{s.isTrial ? <span style={{ color: "var(--muted)" }}>Free</span> : money(s.amount)}</td>
+                  <td>{formatDate(s.endsAt)}</td>
+                  <td><SubStatus row={s} /></td>
+                </tr>
+              ))}
+              {subs.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--muted)", padding: 40 }}>
+                  No subscriptions yet.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "36px 0 16px" }}>

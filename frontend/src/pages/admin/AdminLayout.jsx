@@ -6,6 +6,7 @@ const menu = [
   { to: "/admin", label: "Dashboard", icon: "▤", end: true },
   { to: "/admin/vendors", label: "Vendors", icon: "👥" },
   { to: "/admin/shops", label: "Shops", icon: "🏬" },
+  { to: "/admin/subscriptions", label: "Subscriptions", icon: "💳" },
   { to: "/admin/reports", label: "Reports", icon: "📊" },
   { to: "/admin/settings", label: "Settings", icon: "⚙️" },
 ];

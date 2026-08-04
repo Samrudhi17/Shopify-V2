@@ -14,6 +14,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminVendors from "./pages/admin/AdminVendors";
 import AdminShops from "./pages/admin/AdminShops";
+import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
 import AdminReports from "./pages/admin/AdminReports";
 import AdminSettings from "./pages/admin/AdminSettings";
 
@@ -58,6 +59,7 @@ export default function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="vendors" element={<AdminVendors />} />
             <Route path="shops" element={<AdminShops />} />
+            <Route path="subscriptions" element={<AdminSubscriptions />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
