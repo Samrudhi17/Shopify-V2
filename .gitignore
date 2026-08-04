@@ -28,3 +28,9 @@ firebase-service-account*.json
 # Deploy script artifacts (scripts/deploy.sh)
 /backups/
 /.deploy-state
+
+# Local editor / tooling config — personal to each machine.
+.claude/
+
+# Local-only compose additions (exposes the DB port for GUI clients).
+docker-compose.override.yml
