@@ -24,3 +24,7 @@ firebase-service-account*.json
 .vs/
 .vscode/
 .idea/
+
+# Deploy script artifacts (scripts/deploy.sh)
+/backups/
+/.deploy-state
