@@ -18,14 +18,16 @@ public class ShopsController : ControllerBase
     private readonly AppDbContext _db;
     private readonly IFileStorageService _storage;
     private readonly IConfiguration _config;
+    private readonly IQrCodeService _qr;
     private readonly ICurrentUser _me;
 
-    public ShopsController(AppDbContext db, IFileStorageService storage, IConfiguration config, ICurrentUser me)
+    public ShopsController(AppDbContext db, IFileStorageService storage, IConfiguration config, ICurrentUser me, IQrCodeService qr)
     {
         _db = db;
         _storage = storage;
         _config = config;
         _me = me;
+        _qr = qr;
     }
 
     // GET /api/shops/name-available?name=Gokul — live check for the registration
@@ -102,7 +104,7 @@ public class ShopsController : ControllerBase
         await _db.SaveChangesAsync();
 
         // Generate the QR code image for the catalog URL and store it locally.
-        var qrImagePath = await GenerateQrAsync(catalogUrl);
+        var qrImagePath = await _qr.RenderAsync(catalogUrl);
 
         _db.QrCodes.Add(new QrCode
         {
@@ -191,21 +193,10 @@ public class ShopsController : ControllerBase
         var shop = await _db.Shops.Include(s => s.QrCode).FirstOrDefaultAsync(s => s.ShopId == id);
         if (shop is null) return NotFound(new { message = "Shop not found." });
 
-        var catalogUrl = PublicUrls.Catalog(_config, shop.Slug);
-        var qrImagePath = await GenerateQrAsync(catalogUrl);
-
-        if (shop.QrCode is null)
-            _db.QrCodes.Add(new QrCode { ShopId = shop.ShopId, CatalogUrl = catalogUrl, QrImagePath = qrImagePath });
-        else
-        {
-            shop.QrCode.CatalogUrl = catalogUrl;
-            shop.QrCode.QrImagePath = qrImagePath;
-        }
-
-        shop.CatalogUrl = catalogUrl;
+        var qrImagePath = await _qr.RefreshAsync(shop);
         await _db.SaveChangesAsync();
 
-        return Ok(new { shop.ShopId, shop.ShopName, catalogUrl, qrImagePath });
+        return Ok(new { shop.ShopId, shop.ShopName, catalogUrl = shop.CatalogUrl, qrImagePath });
     }
 
     // POST /api/shops/regenerate-all-qr — same, for every shop. Run this once
@@ -214,35 +205,8 @@ public class ShopsController : ControllerBase
     [HttpPost("regenerate-all-qr")]
     public async Task<IActionResult> RegenerateAllQr()
     {
-        var shops = await _db.Shops.Include(s => s.QrCode).ToListAsync();
-        var results = new List<object>();
-
-        foreach (var shop in shops)
-        {
-            var catalogUrl = PublicUrls.Catalog(_config, shop.Slug);
-            var qrImagePath = await GenerateQrAsync(catalogUrl);
-
-            if (shop.QrCode is null)
-                _db.QrCodes.Add(new QrCode { ShopId = shop.ShopId, CatalogUrl = catalogUrl, QrImagePath = qrImagePath });
-            else
-            {
-                shop.QrCode.CatalogUrl = catalogUrl;
-                shop.QrCode.QrImagePath = qrImagePath;
-            }
-
-            shop.CatalogUrl = catalogUrl;
-            results.Add(new { shop.ShopId, shop.ShopName, catalogUrl, qrImagePath });
-        }
-
-        await _db.SaveChangesAsync();
-        return Ok(new { regenerated = results.Count, shops = results });
+        var regenerated = await _qr.RefreshStaleAsync();
+        return Ok(new { regenerated });
     }
 
-    private async Task<string> GenerateQrAsync(string url)
-    {
-        using var generator = new QRCodeGenerator();
-        using var data = generator.CreateQrCode(url, QRCodeGenerator.ECCLevel.Q);
-        var png = new PngByteQRCode(data).GetGraphic(20);
-        return await _storage.SaveBytesAsync(png, "qrcodes", ".png");
-    }
 }

@@ -111,6 +111,7 @@ builder.Services.AddAuthorization();
 // Local file storage for images / certificates / QR codes.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<IQrCodeService, QrCodeService>();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // --- Billing ---
@@ -175,6 +176,25 @@ if (app.Configuration.GetValue("RUN_MIGRATIONS", true))
                 attempt, maxAttempts, ex.Message);
             Thread.Sleep(TimeSpan.FromSeconds(5));
         }
+    }
+
+    // A QR image has its target URL drawn into the pixels, so changing
+    // PUBLIC_BASE_URL leaves every existing code pointing at the old address.
+    // Rewriting the stale ones here means deploying to a new domain or IP needs
+    // no extra step — and no authenticated call a deploy script cannot make.
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var qr = scope.ServiceProvider.GetRequiredService<IQrCodeService>();
+        var refreshed = await qr.RefreshStaleAsync();
+        if (refreshed > 0)
+            logger.LogInformation("Regenerated {Count} QR code(s) for {BaseUrl}.",
+                refreshed, PublicUrls.Base(app.Configuration));
+    }
+    catch (Exception ex)
+    {
+        // Never block startup over this — the site works, the codes are just stale.
+        logger.LogWarning("Could not refresh QR codes: {Message}", ex.Message);
     }
 }
 
