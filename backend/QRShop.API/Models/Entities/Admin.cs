@@ -17,9 +17,10 @@ public class Admin
     [MaxLength(128)]
     public string? FirebaseUid { get; set; }
 
-    // Firebase handles the real auth; this is a hashed fallback/local password.
-    [MaxLength(255)]
-    public string? Password { get; set; }
+    // No password is stored here or anywhere else: Firebase holds the
+    // credentials and the API only ever sees a signed ID token. A nullable
+    // Password column survived from before that change and was dropped in
+    // DropAdminPassword — nothing ever read or wrote it.
 
     [MaxLength(50)]
     public string Role { get; set; } = "Admin";
